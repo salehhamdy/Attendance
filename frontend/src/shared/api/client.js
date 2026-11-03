@@ -68,4 +68,8 @@ export const realApi = {
   updateSettings: (s) => request('POST', '/owner/settings', s),
   addUser: (u) => request('POST', '/owner/users', u),
   removeUser: (id) => request('DELETE', `/owner/users/${id}`),
+  getCompanySettings: () => request('GET', '/owner/company'),
+  updateCompanySettings: (c) => request('POST', '/owner/company', c),
+  addBranch: (b) => request('POST', '/owner/branches', b),
+  removeBranch: (id) => request('DELETE', `/owner/branches/${id}`),
 };

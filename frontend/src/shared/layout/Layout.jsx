@@ -10,7 +10,7 @@ export function Layout({ children }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-dot">●</span> Sharm Attendance
+          <span className="brand-dot">●</span> Attendance Portal
         </div>
         {!owner && (
           <>

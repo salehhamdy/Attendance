@@ -22,6 +22,12 @@ vi.mock('leaflet', () => ({
 vi.mock('../../../shared/api/index.js', () => ({
   api: {
     checkin: vi.fn(),
+    summary: vi.fn().mockResolvedValue({
+      branches: [
+        { id: 1, name: 'Main Business Office', lat: 27.9158, lng: 34.33, radius: 300 },
+      ],
+      allow_remote: false,
+    }),
   },
 }));
 
@@ -42,12 +48,11 @@ describe('Attendance Module - CheckInModal Component', () => {
     expect(distFar).toBeGreaterThan(100000); // hundreds of km
   });
 
-  it('renders work zone info and confirm button initially disabled', () => {
+  it('renders workplace info and confirm button initially disabled', async () => {
     render(<CheckInModal onClose={vi.fn()} onDone={vi.fn()} />);
-    expect(screen.getByText(/Zone:/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Rixos Radamis/i).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Target Workplace:/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirm Location & Check In/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Simulate Rixos Radamis GPS/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Simulate GPS/i })).toBeEnabled();
   });
 
   it('simulates GPS coordinates and enables checkin within geofence', async () => {
@@ -58,7 +63,7 @@ describe('Attendance Module - CheckInModal Component', () => {
     const onDone = vi.fn();
     render(<CheckInModal onClose={vi.fn()} onDone={onDone} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Simulate Rixos Radamis GPS/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /Simulate GPS/i }));
 
     expect(screen.getByText(/In Geofence/i)).toBeInTheDocument();
     const confirmBtn = screen.getByRole('button', { name: /Confirm Location & Check In/i });
@@ -70,13 +75,12 @@ describe('Attendance Module - CheckInModal Component', () => {
   });
 
   it('handles checkin error from API', async () => {
-    api.checkin.mockRejectedValueOnce(new Error('Outside geofence zone boundary'));
+    api.checkin.mockRejectedValueOnce(new Error('Outside approved workplace'));
     render(<CheckInModal onClose={vi.fn()} onDone={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Simulate Rixos Radamis GPS/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /Simulate GPS/i }));
     await userEvent.click(screen.getByRole('button', { name: /Confirm Location & Check In/i }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Outside geofence zone boundary');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Outside approved workplace');
   });
 });
-

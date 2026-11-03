@@ -14,11 +14,27 @@ vi.mock('../../../shared/api/index.js', () => ({
     updateSettings: vi.fn(),
     addUser: vi.fn(),
     removeUser: vi.fn(),
+    getCompanySettings: vi.fn(),
+    updateCompanySettings: vi.fn(),
+    addBranch: vi.fn(),
+    removeBranch: vi.fn(),
   },
 }));
 
 import { api } from '../../../shared/api/index.js';
 import { OwnerDashboard } from '../index.js';
+
+const mockCompanyData = {
+  company_name: 'Universal Attendance System',
+  currency: 'EGP',
+  reward_threshold: 30,
+  reward_amount: '40 USD / 2,200 EGP',
+  allow_remote: false,
+  branches: [
+    { id: 1, name: 'Rixos Radamis (Sharm El-Sheikh)', lat: 27.9158, lng: 34.33, radius: 300 },
+    { id: 2, name: 'Cairo Headquarters', lat: 30.0444, lng: 31.2357, radius: 300 },
+  ],
+};
 
 const mockOwnerData = {
   users: [
@@ -33,6 +49,7 @@ const mockOwnerData = {
     normal_window_end: '10:00',
     late_window_end: '12:00',
   },
+  company: mockCompanyData,
   leave_requests: [
     {
       id: 10,
@@ -65,6 +82,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('renders photographer stats, points and deduction calculations', async () => {
     api.ownerUsers.mockResolvedValueOnce(mockOwnerData);
     api.getSettings.mockResolvedValueOnce(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValueOnce(mockCompanyData);
     render(<OwnerDashboard />);
 
     const ricoElements = await screen.findAllByText('rico');
@@ -76,9 +94,97 @@ describe('Owner Module - OwnerDashboard Screen', () => {
     expect(screen.getByText('250 EGP')).toBeInTheDocument();
   });
 
+  it('allows owner to configure universal company profile, currency, and remote check-in policy', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.updateCompanySettings.mockResolvedValueOnce({
+      ...mockCompanyData,
+      company_name: 'Global Tech Corp',
+      currency: 'USD',
+      allow_remote: true,
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const nameInput = screen.getByLabelText(/Company \/ Organization Name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Global Tech Corp');
+
+    const currencyInput = screen.getByLabelText(/Operating Currency Code/i);
+    await userEvent.clear(currencyInput);
+    await userEvent.type(currencyInput, 'USD');
+
+    const remoteCheckbox = screen.getByLabelText(/Allow Remote \/ Anywhere Check-in/i);
+    await userEvent.click(remoteCheckbox);
+
+    const saveBtn = screen.getByRole('button', { name: /Save Business Profile & Policy/i });
+    await userEvent.click(saveBtn);
+
+    expect(api.updateCompanySettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        company_name: 'Global Tech Corp',
+        currency: 'USD',
+        allow_remote: true,
+      })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(/updated successfully/i);
+  });
+
+  it('allows owner to add a new physical branch location with GPS geofence', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.addBranch.mockResolvedValueOnce({
+      id: 3,
+      name: 'Dubai Hub',
+      lat: 25.2048,
+      lng: 55.2708,
+      radius: 400,
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    await userEvent.type(screen.getByLabelText(/^Branch Name$/i), 'Dubai Hub');
+    await userEvent.clear(screen.getByLabelText(/Allowed Geofence Radius/i));
+    await userEvent.type(screen.getByLabelText(/Allowed Geofence Radius/i), '400');
+    await userEvent.type(screen.getByLabelText(/GPS Latitude/i), '25.2048');
+    await userEvent.type(screen.getByLabelText(/GPS Longitude/i), '55.2708');
+
+    const addBranchBtn = screen.getByRole('button', { name: /Add Branch Location/i });
+    await userEvent.click(addBranchBtn);
+
+    expect(api.addBranch).toHaveBeenCalledWith({
+      name: 'Dubai Hub',
+      lat: 25.2048,
+      lng: 55.2708,
+      radius: 400,
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent(/New branch "Dubai Hub" added successfully/i);
+  });
+
+  it('allows owner to remove a branch location', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.removeBranch.mockResolvedValueOnce({ success: true });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const removeBtn = screen.getByRole('button', { name: /Remove branch Cairo Headquarters/i });
+    await userEvent.click(removeBtn);
+
+    expect(api.removeBranch).toHaveBeenCalledWith(2);
+    expect(await screen.findByRole('status')).toHaveTextContent(/removed from company locations/i);
+  });
+
   it('allows owner to configure penalty values and arrival time windows', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.updateSettings.mockResolvedValueOnce({
       ...mockOwnerData.settings,
       red_penalty_egp: 350,
@@ -111,6 +217,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('allows owner to add a new photographer account', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.addUser.mockResolvedValueOnce({
       id: 3,
       name: 'Tarek Hamdy',
@@ -138,6 +245,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('allows owner to remove a user account', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.removeUser.mockResolvedValueOnce({ success: true });
 
     render(<OwnerDashboard />);
@@ -153,6 +261,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('allows owner to adjust points with an audit reason', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.ownerAdjust.mockResolvedValueOnce({ success: true });
 
     render(<OwnerDashboard />);
@@ -178,6 +287,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('processes leave approval and rejection', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.approveLeave.mockResolvedValueOnce({ success: true });
     api.rejectLeave.mockResolvedValueOnce({ success: true });
 
@@ -197,6 +307,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
   it('processes reward payout approval', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
     api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
     api.approveReward.mockResolvedValueOnce({ success: true });
 
     render(<OwnerDashboard />);

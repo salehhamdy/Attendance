@@ -5,8 +5,6 @@ import { Card, Button, ToggleSwitch, StatCard } from '../../../shared/ui/index.j
 import { CheckInModal } from '../../attendance/index.js';
 import { RewardModal } from '../../rewards/index.js';
 
-const GOAL = 30;
-
 export function EmployeeDashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
@@ -44,9 +42,11 @@ export function EmployeeDashboard() {
       </p>
     );
 
+  const GOAL = Number(s.reward_threshold) || 30;
   const progress = Number.isFinite(s.progress) ? s.progress : s.green;
   const pct = Math.min(100, (progress / GOAL) * 100);
 
+  const currency = s.currency || 'EGP';
   const redPenaltyVal = Number(s.red_penalty_egp) || 250;
   const blackPenaltyVal = Number(s.black_penalty_egp) || 1000;
   const d = s.deductions_egp ?? s.red * redPenaltyVal + s.black * blackPenaltyVal;
@@ -58,12 +58,14 @@ export function EmployeeDashboard() {
     day: 'numeric',
   }).format(new Date());
 
+  const companyName = s.company_name || 'Universal Attendance System';
+
   return (
     <div>
       <div className="row-head">
         <div>
-          <h2>Welcome, {user?.name || 'Photographer'}</h2>
-          <p className="muted subtitle">{todayFormatted}</p>
+          <h2>Welcome, {user?.name || 'Staff Member'}</h2>
+          <p className="muted subtitle">{companyName} · {todayFormatted}</p>
         </div>
         <Button onClick={() => setModal('checkin')}>Check In</Button>
       </div>
@@ -82,13 +84,13 @@ export function EmployeeDashboard() {
           variant="red"
           title="Red Penalties"
           value={s.red}
-          sub={`Red: ${s.red} x ${redPenaltyVal} EGP = ${s.red * redPenaltyVal} EGP`}
+          sub={`Red: ${s.red} x ${redPenaltyVal} ${currency} = ${s.red * redPenaltyVal} ${currency}`}
         />
         <StatCard
           variant="black"
           title="Black Penalties"
           value={s.black}
-          sub={`Black: ${s.black} x ${blackPenaltyVal} EGP = ${s.black * blackPenaltyVal} EGP`}
+          sub={`Black: ${s.black} x ${blackPenaltyVal} ${currency} = ${s.black * blackPenaltyVal} ${currency}`}
         />
       </div>
 
@@ -107,7 +109,7 @@ export function EmployeeDashboard() {
           </div>
           <div className="row-head mt-sm">
             <span className="muted font-semibold">{progress}/{GOAL} Points</span>
-            <span className="muted">Threshold: 40 USD / 2200 EGP</span>
+            <span className="muted">Threshold: {s.reward_amount || '40 USD / 2,200 EGP'}</span>
           </div>
           <Button
             className="mt"
@@ -120,37 +122,37 @@ export function EmployeeDashboard() {
 
         <Card className="deductions-card">
           <h3>Monthly Attendance Deductions</h3>
-          <div className="big red-text">{d} EGP</div>
+          <div className="big red-text">{d} {currency}</div>
           <p className="muted mb-sm">
             {d === 0
               ? 'Zero deductions! Attendance in good standing.'
-              : `Active deductions: ${s.red} Red (${s.red * redPenaltyVal} EGP) + ${s.black} Black (${s.black * blackPenaltyVal} EGP)`}
+              : `Active deductions: ${s.red} Red (${s.red * redPenaltyVal} ${currency}) + ${s.black} Black (${s.black * blackPenaltyVal} ${currency})`}
           </p>
 
           <div className="toggles">
             <label className="toggle-item">
               <span>
                 Use 1 Green Point to remove 1 Red Penalty
-                <small className="block muted">Saves {redPenaltyVal} EGP deduction</small>
+                <small className="block muted">Saves {redPenaltyVal} ${currency} deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel red penalty"
                 checked={false}
                 disabled={s.green < 1 || s.red < 1}
-                onChange={() => act(api.cancelRed, `1 Red Penalty cancelled (-${redPenaltyVal} EGP deduction)`)}
+                onChange={() => act(api.cancelRed, `1 Red Penalty cancelled (-${redPenaltyVal} ${currency} deduction)`)}
               />
             </label>
 
             <label className="toggle-item">
               <span>
                 Use 5 Green Points to remove 1 Black Penalty
-                <small className="block muted">Saves {blackPenaltyVal} EGP deduction</small>
+                <small className="block muted">Saves {blackPenaltyVal} ${currency} deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel black penalty"
                 checked={false}
                 disabled={s.green < 5 || s.black < 1}
-                onChange={() => act(api.cancelBlack, `1 Black Penalty cancelled (-${blackPenaltyVal} EGP deduction)`)}
+                onChange={() => act(api.cancelBlack, `1 Black Penalty cancelled (-${blackPenaltyVal} ${currency} deduction)`)}
               />
             </label>
           </div>
@@ -173,7 +175,7 @@ export function EmployeeDashboard() {
           onClose={() => setModal(null)}
           onDone={() => {
             setModal(null);
-            setMsg('Reward request submitted for owner approval (40 USD / 2200 EGP)');
+            setMsg(`Reward request submitted for owner approval (${s.reward_amount || 'Milestone Reward'})`);
             load();
           }}
         />

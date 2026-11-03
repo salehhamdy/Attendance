@@ -22,21 +22,37 @@ describe('Shared API Mock Module Rules', () => {
     await expect(mockApi.cancelBlack()).rejects.toThrow(/Insufficient points/i);
   });
 
-  it('caps progress at 30', async () => {
+  it('caps progress at reward_threshold', async () => {
     const s = await mockApi.summary();
-    expect(s.progress).toBeLessThanOrEqual(30);
+    expect(s.progress).toBeLessThanOrEqual(s.reward_threshold || 30);
   });
 
   it('requires 30 green points for a reward claim', async () => {
-    await expect(mockApi.requestReward('instapay', '01012345678')).rejects.toThrow(/30 Green Points/i);
+    await expect(mockApi.requestReward('instapay', '01012345678')).rejects.toThrow(/Green Points/i);
   });
 
-  it('validates geofence distance during checkin', async () => {
-    const res = await mockApi.checkin(WORK_ZONE.lat, WORK_ZONE.lng);
-    expect(res.success).toBe(true);
-    expect(res.zone).toBe(WORK_ZONE.name);
+  it('validates multi-branch geofence distance during checkin', async () => {
+    // Check-in at Branch 1 (Sharm)
+    const res1 = await mockApi.checkin(WORK_ZONE.lat, WORK_ZONE.lng);
+    expect(res1.success).toBe(true);
+    expect(res1.zone).toBe('Rixos Radamis (Sharm El-Sheikh)');
 
-    await expect(mockApi.checkin(30.0444, 31.2357)).rejects.toThrow(/Outside geofence zone/i);
+    // Check-in at Branch 2 (Cairo Headquarters: 30.0444, 31.2357)
+    const res2 = await mockApi.checkin(30.0444, 31.2357);
+    expect(res2.success).toBe(true);
+    expect(res2.zone).toBe('Cairo Headquarters');
+
+    // Outside all branches (e.g. London coordinates) fails when remote mode is disabled
+    await expect(mockApi.checkin(51.5074, -0.1278)).rejects.toThrow(/Outside approved workplace/i);
+  });
+
+  it('allows remote check-in from anywhere in the world when allow_remote is enabled', async () => {
+    await mockApi.updateCompanySettings({ allow_remote: true });
+
+    // Check-in from anywhere (e.g. Tokyo, Japan: 35.6762, 139.6503)
+    const res = await mockApi.checkin(35.6762, 139.6503);
+    expect(res.success).toBe(true);
+    expect(res.is_remote).toBe(true);
   });
 
   it('computes accurate haversine distances in meters', () => {
@@ -46,6 +62,54 @@ describe('Shared API Mock Module Rules', () => {
     const distOffset = haversineDistance(27.9158, 34.33, 27.9168, 34.33);
     expect(distOffset).toBeGreaterThan(50);
     expect(distOffset).toBeLessThan(200);
+  });
+
+  it('supports company settings retrieval and update', async () => {
+    const initial = await mockApi.getCompanySettings();
+    expect(initial.company_name).toBe('Universal Attendance System');
+    expect(initial.currency).toBe('EGP');
+
+    const updated = await mockApi.updateCompanySettings({
+      company_name: 'Starlight Global',
+      currency: 'USD',
+      reward_threshold: 25,
+      reward_amount: '$100 Bonus',
+      allow_remote: true,
+    });
+
+    expect(updated.company_name).toBe('Starlight Global');
+    expect(updated.currency).toBe('USD');
+    expect(updated.reward_threshold).toBe(25);
+    expect(updated.allow_remote).toBe(true);
+
+    const s = await mockApi.summary();
+    expect(s.company_name).toBe('Starlight Global');
+    expect(s.currency).toBe('USD');
+    expect(s.reward_threshold).toBe(25);
+    expect(s.allow_remote).toBe(true);
+  });
+
+  it('supports adding and removing workplace branch geofences', async () => {
+    const newBranch = await mockApi.addBranch({
+      name: 'Dubai Hub',
+      lat: 25.2048,
+      lng: 55.2708,
+      radius: 400,
+    });
+    expect(newBranch.id).toBeDefined();
+    expect(newBranch.name).toBe('Dubai Hub');
+
+    // Can now check in at Dubai Hub
+    const checkinRes = await mockApi.checkin(25.2048, 55.2708);
+    expect(checkinRes.success).toBe(true);
+    expect(checkinRes.zone).toBe('Dubai Hub');
+
+    // Remove branch
+    const deleteRes = await mockApi.removeBranch(newBranch.id);
+    expect(deleteRes.success).toBe(true);
+
+    // After removal, Dubai coordinates should fail checkin if remote is false
+    await expect(mockApi.checkin(25.2048, 55.2708)).rejects.toThrow(/Outside approved workplace/i);
   });
 
   it('supports leave submission, listing, approval and rejection', async () => {

@@ -32,7 +32,7 @@ describe('Layout Component', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Sharm Attendance/i)).toBeInTheDocument();
+    expect(screen.getByText(/Attendance Portal/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Leave Requests' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Owner Panel' })).not.toBeInTheDocument();

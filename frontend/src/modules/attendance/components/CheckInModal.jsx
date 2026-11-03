@@ -1,74 +1,107 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { Modal, Button, StatusBadge } from '../../../shared/ui/index.js';
 import { api } from '../../../shared/api/index.js';
-import { WORK_ZONE, getDistanceMeters } from '../services/geofence.js';
+import { DEFAULT_ZONE, findNearestBranch } from '../services/geofence.js';
 
 export function CheckInModal({ onClose, onDone }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
   const pinRef = useRef(null);
   const [pos, setPos] = useState(null);
+  const [branches, setBranches] = useState([DEFAULT_ZONE]);
+  const [allowRemote, setAllowRemote] = useState(false);
   const [status, setStatus] = useState('Locating your GPS coordinates…');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const applyPosition = (c) => {
-    setPos(c);
-    const dist = getDistanceMeters(c.lat, c.lng, WORK_ZONE.lat, WORK_ZONE.lng);
-    const inZone = dist <= WORK_ZONE.radius;
-    setStatus(
-      inZone
-        ? `Inside work zone (~${dist}m from center)`
-        : `Outside work zone (~${dist - WORK_ZONE.radius}m beyond boundary)`
-    );
-
-    if (mapRef.current) {
-      try {
-        if (!pinRef.current) {
-          const pinIcon = L.divIcon({
-            className: 'custom-pin',
-            html: `<div style="background:#dc2626;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10],
-          });
-          pinRef.current = L.marker([c.lat, c.lng], { icon: pinIcon }).addTo(mapRef.current);
-        } else {
-          pinRef.current.setLatLng([c.lat, c.lng]);
+  // Load active company branches & remote checkin policy
+  useEffect(() => {
+    if (api.summary) {
+      api.summary().then((s) => {
+        if (s && s.branches && s.branches.length) {
+          setBranches(s.branches);
         }
-        mapRef.current.fitBounds(
-          L.latLngBounds([
-            [c.lat, c.lng],
-            [WORK_ZONE.lat, WORK_ZONE.lng],
-          ]).pad(0.3)
-        );
-      } catch {
-        // Safe fallback in headless/test environments
-      }
+        if (s && s.allow_remote !== undefined) {
+          setAllowRemote(Boolean(s.allow_remote));
+        }
+      }).catch(() => {});
     }
-  };
+  }, []);
+
+  const nearest = pos ? findNearestBranch(pos.lat, pos.lng, branches) : { branch: branches[0], distance: null, inZone: false };
+  const targetBranch = nearest.branch || branches[0] || DEFAULT_ZONE;
+
+  const applyPosition = useCallback(
+    (c, activeBranches = branches, remoteAllowed = allowRemote) => {
+      setPos(c);
+      const { branch, distance, inZone } = findNearestBranch(c.lat, c.lng, activeBranches);
+      const bName = branch ? branch.name : 'workplace';
+
+      if (remoteAllowed) {
+        setStatus(`Remote check-in enabled: Coordinates detected near ${bName} (~${distance}m)`);
+      } else if (inZone) {
+        setStatus(`Inside ${bName} (~${distance}m from center)`);
+      } else {
+        const radius = branch ? branch.radius : 300;
+        setStatus(`Outside approved zone: ~${distance - radius}m beyond ${bName} boundary`);
+      }
+
+      if (mapRef.current) {
+        try {
+          if (!pinRef.current) {
+            const pinIcon = L.divIcon({
+              className: 'custom-pin',
+              html: `<div style="background:#dc2626;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>`,
+              iconSize: [20, 20],
+              iconAnchor: [10, 10],
+            });
+            pinRef.current = L.marker([c.lat, c.lng], { icon: pinIcon }).addTo(mapRef.current);
+          } else {
+            pinRef.current.setLatLng([c.lat, c.lng]);
+          }
+          if (branch) {
+            mapRef.current.fitBounds(
+              L.latLngBounds([
+                [c.lat, c.lng],
+                [branch.lat, branch.lng],
+              ]).pad(0.3)
+            );
+          }
+        } catch {
+          // Fallback in headless/test environments
+        }
+      }
+    },
+    [branches, allowRemote]
+  );
 
   useEffect(() => {
     let map = null;
+    const centerZone = branches[0] || DEFAULT_ZONE;
+
     if (mapEl.current) {
       try {
-        map = L.map(mapEl.current).setView([WORK_ZONE.lat, WORK_ZONE.lng], 16);
+        map = L.map(mapEl.current).setView([centerZone.lat, centerZone.lng], 15);
         mapRef.current = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap contributors',
         }).addTo(map);
 
-        L.circle([WORK_ZONE.lat, WORK_ZONE.lng], {
-          radius: WORK_ZONE.radius,
-          color: '#6366f1',
-          fillColor: '#6366f1',
-          fillOpacity: 0.18,
-          weight: 2,
-        }).addTo(map);
+        // Draw circles for all company branches
+        branches.forEach((b) => {
+          L.circle([b.lat, b.lng], {
+            radius: Number(b.radius) || 300,
+            color: '#6366f1',
+            fillColor: '#6366f1',
+            fillOpacity: 0.16,
+            weight: 2,
+          }).addTo(map);
+        });
 
         setTimeout(() => map && map.invalidateSize && map.invalidateSize(), 300);
       } catch {
-        // Fallback for jsdom
+        // Safe fallback in test environments
       }
     }
 
@@ -83,7 +116,7 @@ export function CheckInModal({ onClose, onDone }) {
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      setStatus('Geolocation not supported by this browser. Use simulation below.');
+      setStatus('Geolocation not supported. Use simulation below.');
     }
 
     return () => {
@@ -91,11 +124,11 @@ export function CheckInModal({ onClose, onDone }) {
         try {
           map.remove();
         } catch {
-          // ignore cleanup errors
+          // ignore cleanup
         }
       }
     };
-  }, []);
+  }, [branches, applyPosition]);
 
   async function confirm() {
     if (!pos) return;
@@ -110,8 +143,7 @@ export function CheckInModal({ onClose, onDone }) {
     }
   }
 
-  const dist = pos ? getDistanceMeters(pos.lat, pos.lng, WORK_ZONE.lat, WORK_ZONE.lng) : null;
-  const inZone = dist !== null && dist <= WORK_ZONE.radius;
+  const isEligible = allowRemote || nearest.inZone;
 
   return (
     <Modal title="Spatial Attendance Check-In" onClose={onClose}>
@@ -119,13 +151,16 @@ export function CheckInModal({ onClose, onDone }) {
 
       <div className="zone-info">
         <div>
-          <strong>Zone:</strong> {WORK_ZONE.name}
+          <strong>Target Workplace:</strong> {targetBranch.name}
+          {branches.length > 1 && (
+            <span className="muted text-sm block">({branches.length} approved business locations)</span>
+          )}
         </div>
         <div className="status-row">
           <span>{status}</span>
           {pos && (
-            <StatusBadge status={inZone ? 'approved' : 'rejected'}>
-              {inZone ? 'In Geofence' : 'Out of Geofence'}
+            <StatusBadge status={isEligible ? 'approved' : 'rejected'}>
+              {allowRemote ? 'Remote Allowed' : nearest.inZone ? 'In Geofence' : 'Out of Geofence'}
             </StatusBadge>
           )}
         </div>
@@ -142,12 +177,12 @@ export function CheckInModal({ onClose, onDone }) {
           className="btn btn-ghost"
           onClick={() =>
             applyPosition({
-              lat: WORK_ZONE.lat + 0.0002,
-              lng: WORK_ZONE.lng + 0.0002,
+              lat: targetBranch.lat + 0.0002,
+              lng: targetBranch.lng + 0.0002,
             })
           }
         >
-          Simulate Rixos Radamis GPS
+          Simulate GPS at {targetBranch.name}
         </button>
       </div>
     </Modal>
@@ -155,4 +190,3 @@ export function CheckInModal({ onClose, onDone }) {
 }
 
 export default CheckInModal;
-

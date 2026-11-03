@@ -1,11 +1,12 @@
-import { haversineDistance } from '../../../shared/utils/geo.js';
+import { haversineDistance, findNearestBranch } from '../../../shared/utils/geo.js';
 
-export const WORK_ZONE = {
-  name: 'Rixos Radamis (Sharm El-Sheikh)',
+export const DEFAULT_ZONE = {
+  name: 'Main Business Location',
   lat: 27.9158,
   lng: 34.33,
-  radius: 300, // 300m designated work area
+  radius: 300,
 };
 
+export const WORK_ZONE = DEFAULT_ZONE;
 export const getDistanceMeters = haversineDistance;
-
+export { findNearestBranch };

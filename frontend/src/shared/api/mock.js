@@ -1,14 +1,20 @@
-import { haversineDistance } from '../utils/geo.js';
+import { haversineDistance, findNearestBranch } from '../utils/geo.js';
 
 // In-memory mock API used when VITE_MOCK=1 so the UI runs without the backend.
 const delay = (v, ms = 120) => new Promise((r) => setTimeout(() => r(structuredClone(v)), ms));
 const fail = (m, ms = 120) => new Promise((_, rej) => setTimeout(() => rej(new Error(m)), ms));
 
-export const WORK_ZONE = {
-  name: 'Rixos Radamis (Sharm El-Sheikh)',
-  lat: 27.9158,
-  lng: 34.33,
-  radius: 300, // meters
+export const initialCompany = {
+  company_name: 'Universal Attendance System',
+  currency: 'EGP',
+  reward_threshold: 30,
+  reward_amount: '40 USD / 2,200 EGP',
+  allow_remote: false,
+  payout_methods: ['InstaPay', 'Vodafone Cash', 'Bank Transfer', 'Cash'],
+  branches: [
+    { id: 1, name: 'Rixos Radamis (Sharm El-Sheikh)', lat: 27.9158, lng: 34.33, radius: 300 },
+    { id: 2, name: 'Cairo Headquarters', lat: 30.0444, lng: 31.2357, radius: 300 },
+  ],
 };
 
 const initialUsers = [
@@ -26,11 +32,14 @@ const initialSettings = {
   late_window_end: '12:00',
 };
 
+export const WORK_ZONE = initialCompany.branches[0];
+
 const state = {
   green: 27,
   red: 1,
   black: 0,
   settings: { ...initialSettings },
+  company: structuredClone(initialCompany),
   leave: [
     {
       id: 1,
@@ -77,11 +86,18 @@ const summary = () => ({
   black: state.black,
   red_penalty_egp: state.settings.red_penalty_egp,
   black_penalty_egp: state.settings.black_penalty_egp,
+  currency: state.company.currency || 'EGP',
+  company_name: state.company.company_name || 'Universal Attendance System',
+  reward_threshold: state.company.reward_threshold || 30,
+  reward_amount: state.company.reward_amount || '40 USD / 2,200 EGP',
+  allow_remote: Boolean(state.company.allow_remote),
+  branches: structuredClone(state.company.branches || []),
   deductions_egp:
     state.red * state.settings.red_penalty_egp +
     state.black * state.settings.black_penalty_egp,
-  progress: Math.min(state.green, 30),
+  progress: Math.min(state.green, state.company.reward_threshold || 30),
   settings: structuredClone(state.settings),
+  company: structuredClone(state.company),
 });
 
 export const mockApi = {
@@ -93,6 +109,7 @@ export const mockApi = {
       role,
       username,
       name: username,
+      company_name: state.company.company_name,
     });
   },
 
@@ -103,10 +120,14 @@ export const mockApi = {
       return fail('Invalid GPS coordinates provided');
     }
 
-    const dist = haversineDistance(lat, lng, WORK_ZONE.lat, WORK_ZONE.lng);
-    if (dist > WORK_ZONE.radius) {
+    const { branch, distance, inZone } = findNearestBranch(lat, lng, state.company.branches);
+    const allowRemote = Boolean(state.company.allow_remote);
+
+    if (!allowRemote && !inZone) {
+      const branchName = branch ? branch.name : 'designated workplace';
+      const maxRadius = branch ? branch.radius : 300;
       return fail(
-        `Outside geofence zone: You are ~${dist}m away from ${WORK_ZONE.name} (allowed radius: ${WORK_ZONE.radius}m)`
+        `Outside approved workplace: Nearest branch "${branchName}" is ~${distance}m away (allowed radius: ${maxRadius}m)`
       );
     }
 
@@ -119,6 +140,7 @@ export const mockApi = {
     const normalEnd = timeToMinutes(state.settings.normal_window_end);
     const lateEnd = timeToMinutes(state.settings.late_window_end);
 
+    const currency = state.company.currency || 'EGP';
     let pointMsg = 'Check-in recorded successfully';
     let type = 'normal';
 
@@ -132,23 +154,28 @@ export const mockApi = {
     } else if (currentMins >= normalEnd && currentMins < lateEnd) {
       state.red += 1;
       type = 'red';
-      pointMsg = `Late check-in (${state.settings.normal_window_end} - ${state.settings.late_window_end}): +1 Red Penalty assigned (${state.settings.red_penalty_egp} EGP).`;
+      pointMsg = `Late check-in (${state.settings.normal_window_end} - ${state.settings.late_window_end}): +1 Red Penalty assigned (${state.settings.red_penalty_egp} ${currency}).`;
     } else if (currentMins >= lateEnd) {
       state.black += 1;
       type = 'black';
-      pointMsg = `Severe delay / absent (post ${state.settings.late_window_end}): +1 Black Penalty assigned (${state.settings.black_penalty_egp} EGP).`;
+      pointMsg = `Severe delay / absent (post ${state.settings.late_window_end}): +1 Black Penalty assigned (${state.settings.black_penalty_egp} ${currency}).`;
     } else {
       state.green += 1;
       type = 'green';
       pointMsg = 'Early check-in: +1 Green Point awarded!';
     }
 
+    const matchedBranchName = branch ? branch.name : 'Remote Check-in';
+
     return delay({
       success: true,
       type,
       message: pointMsg,
-      distance: dist,
-      zone: WORK_ZONE.name,
+      distance: distance || 0,
+      zone: allowRemote && !inZone ? 'Remote Location' : matchedBranchName,
+      branch: branch || null,
+      allow_remote: allowRemote,
+      is_remote: Boolean(allowRemote && !inZone),
       summary: summary(),
     });
   },
@@ -192,18 +219,18 @@ export const mockApi = {
     if (!number || !payout_method) {
       return fail('Payment method and account number are required');
     }
-    if (state.green < 30) {
-      return fail('Insufficient points: 30 Green Points required to claim 40 USD / 2200 EGP');
+    const threshold = state.company.reward_threshold || 30;
+    if (state.green < threshold) {
+      return fail(`Insufficient points: ${threshold} Green Points required to claim reward`);
     }
-    state.green -= 30;
+    state.green -= threshold;
     const req = {
       id: Date.now(),
       user_id: 1,
       user_name: 'rico',
       payout_method,
       number,
-      amount_usd: 40,
-      amount_egp: 2200,
+      amount: state.company.reward_amount,
       status: 'pending',
     };
     state.rewards.push(req);
@@ -216,6 +243,7 @@ export const mockApi = {
       leave_requests: state.leave,
       reward_requests: state.rewards,
       settings: state.settings,
+      company: state.company,
     }),
 
   ownerAdjust: ({ user_id, color, delta, reason }) => {
@@ -247,7 +275,7 @@ export const mockApi = {
     return delay({ success: true, reward: r });
   },
 
-  // Owner System Configuration & Policy Controls
+  // Owner System Configuration & Shift Policy
   getSettings: () => delay(structuredClone(state.settings)),
 
   updateSettings: (newSettings) => {
@@ -273,7 +301,44 @@ export const mockApi = {
     return delay(structuredClone(state.settings));
   },
 
-  // Owner User Management Controls
+  // Company / Universal Business Profile Settings
+  getCompanySettings: () => delay(structuredClone(state.company)),
+
+  updateCompanySettings: (c) => {
+    if (!c) return fail('Invalid company payload');
+    state.company = {
+      ...state.company,
+      ...c,
+      reward_threshold: Number(c.reward_threshold) || state.company.reward_threshold || 30,
+      allow_remote: Boolean(c.allow_remote),
+    };
+    return delay(structuredClone(state.company));
+  },
+
+  // Multi-Branch Location Management (Anywhere in the World)
+  addBranch: ({ name, lat, lng, radius = 300 }) => {
+    if (!name || typeof lat !== 'number' || typeof lng !== 'number') {
+      return fail('Branch name and valid GPS latitude & longitude are required');
+    }
+    const newBranch = {
+      id: Date.now(),
+      name: name.trim(),
+      lat: Number(lat),
+      lng: Number(lng),
+      radius: Number(radius) || 300,
+    };
+    state.company.branches.push(newBranch);
+    return delay(newBranch);
+  },
+
+  removeBranch: (branchId) => {
+    const idx = state.company.branches.findIndex((b) => b.id === Number(branchId));
+    if (idx === -1) return fail('Branch not found');
+    const [removed] = state.company.branches.splice(idx, 1);
+    return delay({ success: true, removed });
+  },
+
+  // Owner User Management
   addUser: ({ name, username, role = 'employee' }) => {
     if (!name || !username) return fail('Name and username are required');
     const exists = state.users.some(
@@ -306,8 +371,9 @@ export const mockApi = {
     state.red = 1;
     state.black = 0;
     state.settings = { ...initialSettings };
+    state.company = structuredClone(initialCompany);
     state.users = structuredClone(initialUsers);
   },
 };
 
-export { haversineDistance };
+export { haversineDistance, findNearestBranch };

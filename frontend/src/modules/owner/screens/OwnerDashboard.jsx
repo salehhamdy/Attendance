@@ -10,6 +10,30 @@ export function OwnerDashboard() {
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Business Profile & Company Settings (Universal Multi-Business & Remote SaaS)
+  const [company, setCompany] = useState({
+    company_name: 'Universal Attendance System',
+    currency: 'EGP',
+    reward_threshold: 30,
+    reward_amount: '40 USD / 2,200 EGP',
+    allow_remote: false,
+    branches: [
+      { id: 1, name: 'Rixos Radamis (Sharm El-Sheikh)', lat: 27.9158, lng: 34.33, radius: 300 },
+      { id: 2, name: 'Cairo Headquarters', lat: 30.0444, lng: 31.2357, radius: 300 },
+    ],
+  });
+  const [savingCompany, setSavingCompany] = useState(false);
+
+  // Branch creation state
+  const [newBranch, setNewBranch] = useState({
+    name: '',
+    lat: '',
+    lng: '',
+    radius: 300,
+  });
+  const [addingBranch, setAddingBranch] = useState(false);
+  const [locatingBranch, setLocatingBranch] = useState(false);
+
   // Point Adjustment state
   const [adj, setAdj] = useState({ user_id: '', color: 'green', delta: 1, reason: '' });
 
@@ -33,8 +57,9 @@ export function OwnerDashboard() {
     return Promise.all([
       api.ownerUsers(),
       api.getSettings ? api.getSettings().catch(() => null) : Promise.resolve(null),
+      api.getCompanySettings ? api.getCompanySettings().catch(() => null) : Promise.resolve(null),
     ])
-      .then(([r, s]) => {
+      .then(([r, s, c]) => {
         const list = Array.isArray(r) ? r : r.users || [];
         setUsers(list);
         setLeaves(
@@ -51,6 +76,11 @@ export function OwnerDashboard() {
           setSettings(s);
         } else if (r && r.settings) {
           setSettings(r.settings);
+        }
+        if (c) {
+          setCompany(c);
+        } else if (r && r.company) {
+          setCompany(r.company);
         }
         setLoading(false);
       })
@@ -76,7 +106,96 @@ export function OwnerDashboard() {
     }
   };
 
-  // 1. Submit Point Adjustment
+  // 1. Submit Company Profile (Universal Business & Remote Policy)
+  async function submitCompany(e) {
+    e.preventDefault();
+    setErr('');
+    setMsg('');
+    setSavingCompany(true);
+    try {
+      if (api.updateCompanySettings) {
+        await api.updateCompanySettings(company);
+      }
+      setMsg(`Business profile for "${company.company_name}" updated successfully.`);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingCompany(false);
+    }
+  }
+
+  // 2. Add Branch Location
+  async function submitAddBranch(e) {
+    e.preventDefault();
+    if (!newBranch.name.trim() || newBranch.lat === '' || newBranch.lng === '') {
+      setErr('Branch name and valid latitude/longitude coordinates are required');
+      return;
+    }
+    setErr('');
+    setMsg('');
+    setAddingBranch(true);
+    try {
+      if (api.addBranch) {
+        await api.addBranch({
+          name: newBranch.name.trim(),
+          lat: Number(newBranch.lat),
+          lng: Number(newBranch.lng),
+          radius: Number(newBranch.radius) || 300,
+        });
+      }
+      setMsg(`New branch "${newBranch.name}" added successfully.`);
+      setNewBranch({ name: '', lat: '', lng: '', radius: 300 });
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setAddingBranch(false);
+    }
+  }
+
+  // 3. Remove Branch Location
+  async function removeBranch(branch) {
+    setErr('');
+    setMsg('');
+    try {
+      if (api.removeBranch) {
+        await api.removeBranch(branch.id);
+      }
+      setMsg(`Branch "${branch.name}" removed from company locations.`);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  // 4. Autofill Branch GPS using current device location
+  function locateDeviceForBranch() {
+    if (!navigator.geolocation) {
+      setErr('Geolocation is not supported by your browser');
+      return;
+    }
+    setLocatingBranch(true);
+    setErr('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocatingBranch(false);
+        setNewBranch((prev) => ({
+          ...prev,
+          lat: Number(pos.coords.latitude.toFixed(6)),
+          lng: Number(pos.coords.longitude.toFixed(6)),
+        }));
+        setMsg('Coordinates acquired from device GPS');
+      },
+      (err) => {
+        setLocatingBranch(false);
+        setErr(`GPS error: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // 5. Submit Point Adjustment
   async function submitAdjust(e) {
     e.preventDefault();
     if (!adj.user_id) {
@@ -101,7 +220,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 2. Submit Settings (Penalties & Arrival Windows)
+  // 6. Submit Settings (Penalties & Arrival Windows)
   async function submitSettings(e) {
     e.preventDefault();
     setErr('');
@@ -120,7 +239,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 3. Add User
+  // 7. Add User
   async function submitAddUser(e) {
     e.preventDefault();
     if (!newUser.name.trim() || !newUser.username.trim()) {
@@ -144,7 +263,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 4. Remove User
+  // 8. Remove User
   async function removeUser(user) {
     setErr('');
     setMsg('');
@@ -166,8 +285,10 @@ export function OwnerDashboard() {
     (r) => String(r.status || '').toLowerCase() === 'pending'
   );
 
+  const currency = company.currency || 'EGP';
   const redVal = Number(settings.red_penalty_egp) || 250;
   const blackVal = Number(settings.black_penalty_egp) || 1000;
+  const branches = company.branches || [];
 
   return (
     <div>
@@ -175,7 +296,7 @@ export function OwnerDashboard() {
         <div>
           <h2>Owner Administration Panel</h2>
           <p className="muted subtitle">
-            Configure resort arrival times, adjust penalty values, manage photographer accounts, and process approvals.
+            Universal attendance control for {company.company_name}: configure branches anywhere in the world, remote work, penalties, and team management.
           </p>
         </div>
       </div>
@@ -187,7 +308,7 @@ export function OwnerDashboard() {
       <div className="grid3 mb">
         <StatCard
           variant="green"
-          title="Total Photographers"
+          title="Team Members"
           value={users.length}
           sub="Registered system accounts"
         />
@@ -201,22 +322,233 @@ export function OwnerDashboard() {
           variant="black"
           title="Pending Rewards"
           value={pendingRewards.length}
-          sub="30-point milestone claims (40 USD / 2200 EGP)"
+          sub={`${company.reward_threshold || 30}-point milestone claims (${company.reward_amount || 'Reward'})`}
         />
       </div>
 
-      {/* System Policy & Penalty Configuration */}
+      {/* 1. Business Profile & Global Attendance Policy */}
       <Card className="mb">
-        <h3>System Attendance Policy & Penalty Configuration</h3>
+        <h3>Universal Business Profile & Attendance Mode</h3>
         <p className="muted text-sm mb-sm">
-          Adjust the financial penalty rates and daily shift arrival windows for Sharm photographers (Africa/Cairo time).
+          Tailor this attendance system to any organization, company name, local currency, and remote or multi-location policy.
+        </p>
+
+        <form onSubmit={submitCompany} className="form" noValidate>
+          <div className="two">
+            <div>
+              <label htmlFor="company-name" className="field-label">
+                Company / Organization Name
+              </label>
+              <input
+                id="company-name"
+                type="text"
+                required
+                value={company.company_name}
+                onChange={(e) => setCompany({ ...company, company_name: e.target.value })}
+                placeholder="e.g. Acme Studios, Radamis Resort, Nile Media"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="company-currency" className="field-label">
+                Operating Currency Code
+              </label>
+              <input
+                id="company-currency"
+                type="text"
+                required
+                maxLength={6}
+                value={company.currency}
+                onChange={(e) => setCompany({ ...company, currency: e.target.value.toUpperCase() })}
+                placeholder="e.g. EGP, USD, SAR, AED, EUR, GBP"
+              />
+            </div>
+          </div>
+
+          <div className="two">
+            <div>
+              <label htmlFor="company-reward-threshold" className="field-label">
+                Reward Milestone Threshold (Green Points)
+              </label>
+              <input
+                id="company-reward-threshold"
+                type="number"
+                min="1"
+                required
+                value={company.reward_threshold}
+                onChange={(e) => setCompany({ ...company, reward_threshold: Number(e.target.value) })}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="company-reward-amount" className="field-label">
+                Reward Payout Description
+              </label>
+              <input
+                id="company-reward-amount"
+                type="text"
+                required
+                value={company.reward_amount}
+                onChange={(e) => setCompany({ ...company, reward_amount: e.target.value })}
+                placeholder="e.g. 40 USD / 2,200 EGP or 100 USD Bonus"
+              />
+            </div>
+          </div>
+
+          <div className="mb-sm">
+            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+              <input
+                id="company-allow-remote"
+                type="checkbox"
+                checked={Boolean(company.allow_remote)}
+                onChange={(e) => setCompany({ ...company, allow_remote: e.target.checked })}
+              />
+              <span style={{ fontWeight: 600 }}>
+                Allow Remote / Anywhere Check-in (Worldwide)
+              </span>
+            </label>
+            <p className="muted text-sm" style={{ marginTop: '0.2rem', marginLeft: '1.6rem' }}>
+              When enabled, employees can record attendance from anywhere in the world without requiring proximity to a physical branch geofence.
+            </p>
+          </div>
+
+          <Button disabled={savingCompany}>
+            {savingCompany ? 'Saving Profile…' : 'Save Business Profile & Policy'}
+          </Button>
+        </form>
+      </Card>
+
+      {/* 2. Work Locations & Multi-Branch Geofences */}
+      <Card className="mb">
+        <h3>Workplace Branches & Multi-Location Geofences</h3>
+        <p className="muted text-sm mb-sm">
+          Define physical offices, studios, or resorts anywhere in the world. When remote mode is disabled, staff must check in within the specified geofence radius.
+        </p>
+
+        {branches.length > 0 ? (
+          <table className="mb">
+            <thead>
+              <tr>
+                <th>Branch Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Radius (Meters)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {branches.map((b) => (
+                <tr key={b.id}>
+                  <td><strong>{b.name}</strong></td>
+                  <td><code>{Number(b.lat).toFixed(4)}</code></td>
+                  <td><code>{Number(b.lng).toFixed(4)}</code></td>
+                  <td>{b.radius || 300}m</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-label={`Remove branch ${b.name}`}
+                      onClick={() => removeBranch(b)}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted mb">No physical branches configured. Add a workplace location below or enable remote check-in.</p>
+        )}
+
+        <h4>Add New Workplace Branch</h4>
+        <form onSubmit={submitAddBranch} className="form" noValidate>
+          <div className="two">
+            <div>
+              <label htmlFor="branch-name" className="field-label">Branch Name</label>
+              <input
+                id="branch-name"
+                required
+                aria-label="Branch name"
+                placeholder="e.g. London Office, Dubai Media City, Alexandria Studio"
+                value={newBranch.name}
+                onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="branch-radius" className="field-label">Allowed Geofence Radius (meters)</label>
+              <input
+                id="branch-radius"
+                type="number"
+                min="20"
+                max="5000"
+                required
+                aria-label="Branch radius"
+                value={newBranch.radius}
+                onChange={(e) => setNewBranch({ ...newBranch, radius: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="two">
+            <div>
+              <label htmlFor="branch-lat" className="field-label">GPS Latitude</label>
+              <input
+                id="branch-lat"
+                type="number"
+                step="any"
+                required
+                aria-label="Branch latitude"
+                placeholder="e.g. 27.9158"
+                value={newBranch.lat}
+                onChange={(e) => setNewBranch({ ...newBranch, lat: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="branch-lng" className="field-label">GPS Longitude</label>
+              <input
+                id="branch-lng"
+                type="number"
+                step="any"
+                required
+                aria-label="Branch longitude"
+                placeholder="e.g. 34.3300"
+                value={newBranch.lng}
+                onChange={(e) => setNewBranch({ ...newBranch, lng: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="btn-row">
+            <Button disabled={addingBranch}>
+              {addingBranch ? 'Adding Branch…' : 'Add Branch Location'}
+            </Button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={locateDeviceForBranch}
+              disabled={locatingBranch}
+            >
+              {locatingBranch ? 'Detecting GPS…' : 'Use Current Device GPS'}
+            </button>
+          </div>
+        </form>
+      </Card>
+
+      {/* 3. System Policy & Penalty Configuration */}
+      <Card className="mb">
+        <h3>Attendance Shift Windows & Financial Penalties</h3>
+        <p className="muted text-sm mb-sm">
+          Adjust the financial penalty rates in {currency} and daily shift arrival windows for scheduled shifts.
         </p>
 
         <form onSubmit={submitSettings} className="form" noValidate>
           <div className="two">
             <div>
               <label htmlFor="cfg-red-penalty" className="field-label">
-                Red Penalty Value (EGP)
+                Red Penalty Value ({currency})
               </label>
               <input
                 id="cfg-red-penalty"
@@ -227,13 +559,13 @@ export function OwnerDashboard() {
                 onChange={(e) =>
                   setSettings({ ...settings, red_penalty_egp: e.target.value })
                 }
-                title="Deduction amount per late check-in"
+                title={`Deduction amount per late check-in in ${currency}`}
               />
             </div>
 
             <div>
               <label htmlFor="cfg-black-penalty" className="field-label">
-                Black Penalty Value (EGP)
+                Black Penalty Value ({currency})
               </label>
               <input
                 id="cfg-black-penalty"
@@ -244,7 +576,7 @@ export function OwnerDashboard() {
                 onChange={(e) =>
                   setSettings({ ...settings, black_penalty_egp: e.target.value })
                 }
-                title="Deduction amount per severe delay or full-day absence"
+                title={`Deduction amount per severe delay or full-day absence in ${currency}`}
               />
             </div>
           </div>
@@ -252,7 +584,7 @@ export function OwnerDashboard() {
           <div className="two">
             <div>
               <label htmlFor="cfg-early-start" className="field-label">
-                Early Arrival Bonus Start (Africa/Cairo)
+                Early Arrival Bonus Start (Shift Time)
               </label>
               <input
                 id="cfg-early-start"
@@ -319,11 +651,11 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* User Management Section */}
+      {/* 4. User Management Section */}
       <Card className="mb">
-        <h3>User Management: Add Photographer / Admin</h3>
+        <h3>User Management: Add Employee / Admin</h3>
         <p className="muted text-sm mb-sm">
-          Create new photographer or management accounts with portal access.
+          Create new staff, employee, or management accounts with portal access.
         </p>
 
         <form onSubmit={submitAddUser} className="form inline">
@@ -348,8 +680,8 @@ export function OwnerDashboard() {
             value={newUser.role}
             onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
           >
-            <option value="employee">Photographer (Employee)</option>
-            <option value="owner">System Owner (Admin)</option>
+            <option value="employee">Employee / Staff</option>
+            <option value="owner">System Owner / Admin</option>
           </select>
 
           <Button disabled={addingUser}>
@@ -358,11 +690,11 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* Employee List Table with Remove Action */}
+      {/* 5. Employee List Table with Remove Action */}
       <Card>
-        <h3>Photographer Attendance & Point Balances</h3>
+        <h3>Staff Attendance & Point Balances</h3>
         {loading ? (
-          <p className="muted">Loading photographers…</p>
+          <p className="muted">Loading staff list…</p>
         ) : (
           <table>
             <thead>
@@ -371,8 +703,8 @@ export function OwnerDashboard() {
                 <th>Name / Username</th>
                 <th>Role</th>
                 <th>Green Points</th>
-                <th>Red ({redVal} EGP)</th>
-                <th>Black ({blackVal} EGP)</th>
+                <th>Red ({redVal} {currency})</th>
+                <th>Black ({blackVal} {currency})</th>
                 <th>Current Deductions</th>
                 <th>Manage</th>
               </tr>
@@ -392,7 +724,7 @@ export function OwnerDashboard() {
                     <td className="black-text font-semibold">{u.black || 0}</td>
                     <td>
                       <span className={totalDeductions > 0 ? 'red-text font-semibold' : 'muted'}>
-                        {totalDeductions} EGP
+                        {totalDeductions} {currency}
                       </span>
                     </td>
                     <td>
@@ -420,7 +752,7 @@ export function OwnerDashboard() {
         )}
       </Card>
 
-      {/* Point Adjustment Form */}
+      {/* 6. Point Adjustment Form */}
       <Card className="mt">
         <h3>Administrative Point Adjustment</h3>
         <p className="muted text-sm mb-sm">
@@ -447,8 +779,8 @@ export function OwnerDashboard() {
             onChange={(e) => setAdj({ ...adj, color: e.target.value })}
           >
             <option value="green">Green (Early/Reward)</option>
-            <option value="red">Red (Penalty - {redVal} EGP)</option>
-            <option value="black">Black (Penalty - {blackVal} EGP)</option>
+            <option value="red">Red (Penalty - {redVal} {currency})</option>
+            <option value="black">Black (Penalty - {blackVal} {currency})</option>
           </select>
 
           <input
@@ -472,7 +804,7 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* Leave Requests Table */}
+      {/* 7. Leave Requests Table */}
       <Card className="mt">
         <h3>Leave Requests & Absence Waiver</h3>
         <table>
@@ -535,9 +867,9 @@ export function OwnerDashboard() {
         </table>
       </Card>
 
-      {/* Reward Requests Table */}
+      {/* 8. Reward Requests Table */}
       <Card className="mt">
-        <h3>30-Point Milestone Reward Claims (40 USD / 2,200 EGP)</h3>
+        <h3>{company.reward_threshold || 30}-Point Milestone Reward Claims ({company.reward_amount || 'Milestone Reward'})</h3>
         <table>
           <thead>
             <tr>
@@ -557,7 +889,7 @@ export function OwnerDashboard() {
                   <td><strong>{r.user_name || `User #${r.user_id}`}</strong></td>
                   <td className="capitalize">{String(r.payout_method).replace('_', ' ')}</td>
                   <td><code>{r.number}</code></td>
-                  <td>40 USD / 2,200 EGP</td>
+                  <td>{company.reward_amount || 'Milestone Reward'}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>
                     {isPending ? (

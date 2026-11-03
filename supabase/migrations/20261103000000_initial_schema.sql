@@ -451,3 +451,4 @@ WITH CHECK (bucket_id = 'checkin-photos');
 CREATE POLICY "Storage View Selfie Policy"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'checkin-photos');
+

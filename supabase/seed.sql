@@ -83,3 +83,4 @@ VALUES
     'Cairo, EG',
     'Supabase PostgreSQL multi-tenant schema provisioned with RLS and cascading security triggers.'
 );
+

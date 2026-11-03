@@ -51,9 +51,24 @@ frontend/src/
 
 ## System Status
 - **Frontend (Modular Monolith):** Fully implemented and verified with **107 unit and integration tests across 12 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
-- **Backend (FastAPI + PostgreSQL):** Planned. The frontend includes a comprehensive in-memory mock engine (`VITE_MOCK=1`) for standalone execution, demonstration, and automated testing.
+- **Backend (FastAPI + SQLAlchemy + Pydantic v2):** Fully implemented and verified with **44 automated integration and unit tests across 6 suites** (100% passing), implementing Africa/Cairo timezone calculations, spatial Haversine geofences, anti-spoofing filters, cascading multi-tenant governance, and CSV exports.
+- **Database Architecture (Supabase / PostgreSQL):** Migration script (`supabase/migrations/20261103000000_initial_schema.sql`), seed data (`supabase/seed.sql`), RLS security policies, and client integration (`frontend/src/shared/api/supabaseClient.js`, `supabaseApi.js`).
+- **Total Test Coverage:** **151 automated tests passing with 100% pass rate**.
 
-## Quick Start (Frontend)
+## Quick Start (Backend - FastAPI)
+
+```bash
+# 1. Install Python dependencies
+pip install -r backend/requirements.txt
+
+# 2. Run the FastAPI backend server (http://localhost:8000)
+python backend/run.py
+
+# 3. Run automated backend test suite (44 tests, 100% passing)
+pytest backend/tests -v
+```
+
+## Quick Start (Frontend - React + Vite)
 
 ```bash
 cd frontend

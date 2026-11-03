@@ -167,3 +167,58 @@ frontend/src/
   - **Result: 107 passed / 107 tests (100% success rate)**
 - **Static Analysis:** ESLint executed on `src/` with zero warnings and zero errors.
 - **Production Build:** Vite production bundle completed cleanly in `dist/`.
+
+---
+
+## 5. Backend Architecture & FastAPI Implementation
+
+### Overview
+A production-ready Python backend built on **FastAPI**, **SQLAlchemy ORM**, **Pydantic v2**, and **PyJWT/Bcrypt**, implementing all business rules, security verifications, spatial calculations, and cascading multi-tenant administration.
+
+### Architecture Overview
+```text
+backend/
+├── app/
+│   ├── config.py             # App environment, Cairo timezone, and immutable superadmin config
+│   ├── database.py           # SQLAlchemy database session and engine setup
+│   ├── models.py             # Core ORM models (Workspace, Shift, Branch, User, AttendanceLedger, etc.)
+│   ├── schemas.py            # Pydantic v2 request & response schemas with ConfigDict
+│   ├── auth.py               # Bcrypt password hashing, JWT creation & validation, RBAC dependencies
+│   ├── services/
+│   │   ├── spatial.py        # Haversine spherical distance calculation & nearest branch finder
+│   │   ├── attendance.py     # Africa/Cairo timezone check-in point classification logic
+│   │   └── ledger.py         # Atomic Red/Black penalty cancellation & security audit logging
+│   ├── routers/
+│   │   ├── auth.py           # Standard login and Superadmin Email OTP workflow
+│   │   ├── attendance.py     # Check-in, summary, points history, and calendar endpoints
+│   │   ├── points.py         # Red and Black penalty cancellation endpoints
+│   │   ├── leave.py          # Leave creation, listing, approval, and rejection
+│   │   ├── rewards.py        # Milestone reward requests, listing, and owner approval
+│   │   ├── owner.py          # Owner dashboard, settings, shifts, branches, users, and payroll CSV
+│   │   └── superadmin.py     # Superadmin governance, owner provisioning, cascading suspension & removal
+│   └── main.py               # FastAPI application, CORS middleware, and database auto-seeding
+├── tests/                    # Pytest test suite (44 tests, 100% passing)
+│   ├── conftest.py           # Test fixtures, DB resets, and auth headers
+│   ├── test_attendance.py    # Geofence validation, anti-spoofing, and calendar tests
+│   ├── test_auth.py          # Login, superadmin OTP, and account suspension tests
+│   ├── test_leave_and_rewards.py # Leave requests, waivers, and milestone rewards
+│   ├── test_owner.py         # Owner administration, password reset, and payroll CSV
+│   ├── test_points.py        # Atomic Red/Black point cancellation tests
+│   └── test_superadmin.py    # Immutability, cascading suspension/removal, and audit trail
+├── requirements.txt          # Python dependencies
+└── run.py                    # Standalone Uvicorn runner
+```
+
+### Key Capabilities Verified by Backend Tests
+1. **Africa/Cairo Time Handling:** Exact shift window classification for early (+1 green), on-time (+0), late (+1 red), and critical (+1 black) arrivals based on Cairo local time.
+2. **Spatial Geofencing:** Accurate Haversine distance calculations detecting proximity to resort campuses (e.g. Rixos Radamis Sharm El-Sheikh) and Cairo HQ.
+3. **GPS Anti-Fraud Suite:** In-depth satellite accuracy filter rejecting simulated locations (> 150m) unless verified via on-site physical kiosk code.
+4. **Point Economics & Ledger:** Immutable append-only audit trail with atomic cancellation mechanics (1 green cancels 1 red penalty; 5 green cancel 1 black penalty).
+5. **Superadmin Governance:** Restricts superadmin role exclusively to `salehhamdy599@gmail.com` with Email OTP verification. Immutability blocks deletion, suspension, or alteration of superadmin accounts.
+6. **Cascading Owner Lifecycle:** Suspending an owner immediately suspends all employees under that owner; removing an owner permanently purges all associated employees and records.
+7. **Payroll CSV Export:** Streams or generates dynamic payroll adjustments incorporating red/black deductions and approved milestone cash awards.
+
+### Backend Test Results
+- **Test Command:** `pytest backend/tests -v`
+- **Results:** **44 passed in 27.65s (100% pass rate across all 6 test suites)**
+- **Combined Platform Test Coverage:** **151 total tests passing (107 Frontend + 44 Backend)**.

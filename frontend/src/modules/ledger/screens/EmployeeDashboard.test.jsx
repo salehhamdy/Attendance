@@ -24,10 +24,53 @@ vi.mock('../../rewards/index.js', () => ({
 import { api } from '../../../shared/api/index.js';
 import { EmployeeDashboard } from '../index.js';
 
-const summary = (o = {}) => ({ green: 5, red: 1, black: 1, deductions_egp: 1250, progress: 5, ...o });
+const mockHistory = [
+  {
+    id: 1,
+    timestamp: '2026-11-01 07:35',
+    action: 'Early Check-In',
+    zone: 'Rixos Radamis',
+    delta_green: 1,
+    delta_red: 0,
+    delta_black: 0,
+    note: 'Early shift bonus (+1 Green Point awarded)',
+  },
+  {
+    id: 2,
+    timestamp: '2026-11-02 10:30',
+    action: 'Late Check-In',
+    zone: 'Rixos Radamis',
+    delta_green: 0,
+    delta_red: 1,
+    delta_black: 0,
+    note: 'Late arrival penalty (+1 Red Penalty assigned)',
+  },
+];
+
+const mockCalendar = [
+  { day: 1, date: '2026-11-01', status: 'early', label: 'Early (+1G)', time: '07:35' },
+  { day: 2, date: '2026-11-02', status: 'late', label: 'Late (+1R)', time: '10:30' },
+  { day: 3, date: '2026-11-03', status: 'leave', label: 'Approved Leave', time: '-' },
+];
+
+const summary = (o = {}) => ({
+  green: 5,
+  red: 1,
+  black: 1,
+  deductions_egp: 1250,
+  progress: 5,
+  currency: 'EGP',
+  company_name: 'Universal Attendance System',
+  history: mockHistory,
+  calendar: mockCalendar,
+  ...o,
+});
 
 describe('Ledger Module - EmployeeDashboard Screen', () => {
-  beforeEach(() => { cleanup(); vi.clearAllMocks(); });
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
 
   it('shows loading then the point cards and deductions', async () => {
     api.summary.mockResolvedValue(summary());
@@ -38,6 +81,31 @@ describe('Ledger Module - EmployeeDashboard Screen', () => {
     expect(screen.getByText('1250 EGP')).toBeInTheDocument();
     expect(screen.getByText(/5\/30/)).toBeInTheDocument();
     expect(screen.getByText('Welcome, rico')).toBeInTheDocument();
+  });
+
+  it('renders the Monthly Attendance Calendar with daily statuses and statistics', async () => {
+    api.summary.mockResolvedValue(summary());
+    render(<EmployeeDashboard />);
+
+    expect(await screen.findByText(/Monthly Attendance Calendar/i)).toBeInTheDocument();
+    expect(screen.getByText('Early (+1G)')).toBeInTheDocument();
+    expect(screen.getByText('Late (+1R)')).toBeInTheDocument();
+    expect(screen.getByText('Approved Leave')).toBeInTheDocument();
+
+    expect(screen.getByText(/Early Bonus Days:/i).closest('div')).toHaveTextContent('1');
+    expect(screen.getByText(/Late \/ Leave Days:/i).closest('div')).toHaveTextContent('1 Late / 1 Leaves');
+  });
+
+  it('renders the Points History Ledger audit trail table', async () => {
+    api.summary.mockResolvedValue(summary());
+    render(<EmployeeDashboard />);
+
+    expect(await screen.findByText(/Points History Ledger/i)).toBeInTheDocument();
+    expect(screen.getByText('Early Check-In')).toBeInTheDocument();
+    expect(screen.getByText('Late Check-In')).toBeInTheDocument();
+    expect(screen.getByText('+1 Green')).toBeInTheDocument();
+    expect(screen.getByText('+1 Red')).toBeInTheDocument();
+    expect(screen.getByText(/Early shift bonus/i)).toBeInTheDocument();
   });
 
   it('disables the reward button below 30 points and enables it at 30', async () => {
@@ -63,4 +131,3 @@ describe('Ledger Module - EmployeeDashboard Screen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('boom');
   });
 });
-

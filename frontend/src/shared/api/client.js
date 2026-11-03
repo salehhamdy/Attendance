@@ -72,4 +72,10 @@ export const realApi = {
   updateCompanySettings: (c) => request('POST', '/owner/company', c),
   addBranch: (b) => request('POST', '/owner/branches', b),
   removeBranch: (id) => request('DELETE', `/owner/branches/${id}`),
+  resetUserPassword: (id, new_password) =>
+    request('POST', `/owner/users/${id}/reset-password`, { new_password }),
+  getPointsHistory: () => request('GET', '/me/history'),
+  getAttendanceCalendar: (year, month) =>
+    request('GET', `/me/calendar${year ? `?year=${year}&month=${month}` : ''}`),
+  exportPayrollCsv: () => request('GET', '/owner/payroll/export'),
 };

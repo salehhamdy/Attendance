@@ -58,7 +58,20 @@ export function EmployeeDashboard() {
     day: 'numeric',
   }).format(new Date());
 
+  const currentMonthName = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
   const companyName = s.company_name || 'Universal Attendance System';
+  const historyList = s.history || [];
+  const calendarDays = s.calendar || [];
+
+  // Summary counts for monthly calendar
+  const countEarly = calendarDays.filter((c) => c.status === 'early').length;
+  const countNormal = calendarDays.filter((c) => c.status === 'normal').length;
+  const countLate = calendarDays.filter((c) => c.status === 'late').length;
+  const countLeave = calendarDays.filter((c) => c.status === 'leave').length;
 
   return (
     <div>
@@ -73,6 +86,7 @@ export function EmployeeDashboard() {
       {err && <p className="error" role="alert">{err}</p>}
       {msg && <p className="ok" role="status">{msg}</p>}
 
+      {/* Top Stat Cards */}
       <div className="grid3">
         <StatCard
           variant="green"
@@ -94,6 +108,7 @@ export function EmployeeDashboard() {
         />
       </div>
 
+      {/* Reward Progress & Deductions */}
       <div className="grid2">
         <Card className="progress-card">
           <h3>Green Reward Progress</h3>
@@ -133,7 +148,7 @@ export function EmployeeDashboard() {
             <label className="toggle-item">
               <span>
                 Use 1 Green Point to remove 1 Red Penalty
-                <small className="block muted">Saves {redPenaltyVal} ${currency} deduction</small>
+                <small className="block muted">Saves {redPenaltyVal} {currency} deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel red penalty"
@@ -146,7 +161,7 @@ export function EmployeeDashboard() {
             <label className="toggle-item">
               <span>
                 Use 5 Green Points to remove 1 Black Penalty
-                <small className="block muted">Saves {blackPenaltyVal} ${currency} deduction</small>
+                <small className="block muted">Saves {blackPenaltyVal} {currency} deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel black penalty"
@@ -158,6 +173,136 @@ export function EmployeeDashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Monthly Attendance Calendar */}
+      <Card className="mt">
+        <div className="row-head">
+          <div>
+            <h3>Monthly Attendance Calendar ({currentMonthName})</h3>
+            <p className="muted text-sm mb-sm">
+              Visual daily attendance log: track on-time arrivals, early bonus points, late delays, and approved leaves.
+            </p>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="preset-bar">
+          <span className="calendar-badge cal-early">● Early Arrival (+1G)</span>
+          <span className="calendar-badge cal-normal">● On-Time</span>
+          <span className="calendar-badge cal-late">● Late Delay (+1R)</span>
+          <span className="calendar-badge cal-absent">● Absent / Severe (+1B)</span>
+          <span className="calendar-badge cal-leave">● Approved Leave</span>
+          <span className="calendar-badge cal-off">● Day Off</span>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="calendar-grid">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dName) => (
+            <div key={dName} className="calendar-header-day">
+              {dName}
+            </div>
+          ))}
+
+          {calendarDays.map((c) => {
+            const statusClass =
+              c.status === 'early'
+                ? 'cal-early'
+                : c.status === 'normal'
+                  ? 'cal-normal'
+                  : c.status === 'late'
+                    ? 'cal-late'
+                    : c.status === 'leave'
+                      ? 'cal-leave'
+                      : c.status === 'absent'
+                        ? 'cal-absent'
+                        : 'cal-off';
+            return (
+              <div key={c.day} className="calendar-cell">
+                <div className="calendar-cell-top">
+                  <span className="calendar-day-num">{c.day}</span>
+                  {c.time && c.time !== '-' && (
+                    <span className="muted text-sm">{c.time}</span>
+                  )}
+                </div>
+                <span className={`calendar-badge ${statusClass}`}>
+                  {c.label || c.status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Monthly Summary Statistics */}
+        <div className="grid3 mt">
+          <div className="muted text-sm">
+            <strong>Early Bonus Days:</strong> {countEarly}
+          </div>
+          <div className="muted text-sm">
+            <strong>On-Time Standard Days:</strong> {countNormal}
+          </div>
+          <div className="muted text-sm">
+            <strong>Late / Leave Days:</strong> {countLate} Late / {countLeave} Leaves
+          </div>
+        </div>
+      </Card>
+
+      {/* Points History Ledger */}
+      <Card className="mt">
+        <div className="row-head">
+          <div>
+            <h3>Points History Ledger</h3>
+            <p className="muted text-sm mb-sm">
+              Complete chronological audit trail of points earned, penalties assigned, and point trading exchanges.
+            </p>
+          </div>
+        </div>
+
+        {historyList.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Activity / Event</th>
+                <th>Location / Zone</th>
+                <th>Point Impact</th>
+                <th>Audit Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyList.map((h) => {
+                let deltaBadge = null;
+                if (h.delta_green > 0) {
+                  deltaBadge = <span className="delta-pill delta-green">+{h.delta_green} Green</span>;
+                } else if (h.delta_green < 0) {
+                  deltaBadge = <span className="delta-pill delta-green">{h.delta_green} Green</span>;
+                } else if (h.delta_red > 0) {
+                  deltaBadge = <span className="delta-pill delta-red">+{h.delta_red} Red</span>;
+                } else if (h.delta_red < 0) {
+                  deltaBadge = <span className="delta-pill delta-red">{h.delta_red} Red</span>;
+                } else if (h.delta_black > 0) {
+                  deltaBadge = <span className="delta-pill delta-black">+{h.delta_black} Black</span>;
+                } else if (h.delta_black < 0) {
+                  deltaBadge = <span className="delta-pill delta-black">{h.delta_black} Black</span>;
+                } else {
+                  deltaBadge = <span className="muted text-sm">0 Points</span>;
+                }
+
+                return (
+                  <tr key={h.id}>
+                    <td><code>{h.timestamp}</code></td>
+                    <td><strong>{h.action}</strong></td>
+                    <td>{h.zone || 'Workplace'}</td>
+                    <td>{deltaBadge}</td>
+                    <td className="muted">{h.note}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted text-center">No point transactions recorded yet.</p>
+        )}
+      </Card>
 
       {modal === 'checkin' && (
         <CheckInModal

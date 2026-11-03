@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../shared/api/index.js';
-import { Card, Button, StatusBadge, StatCard } from '../../../shared/ui/index.js';
+import { Card, Button, StatusBadge, StatCard, Modal } from '../../../shared/ui/index.js';
+
+export const RESORT_PRESETS = [
+  { name: 'Rixos Radamis (Sharm El-Sheikh)', lat: 27.9158, lng: 34.33, radius: 300 },
+  { name: 'Rixos Premium Seagate (Nabq Sharm)', lat: 28.0267, lng: 34.4326, radius: 350 },
+  { name: 'Pickalbatros Aqua Park (Sharm)', lat: 27.8631, lng: 34.3168, radius: 300 },
+  { name: 'Four Seasons Resort (Sharm El-Sheikh)', lat: 27.9620, lng: 34.3912, radius: 400 },
+  { name: 'Steigenberger Alcazar (Nabq Bay)', lat: 28.0531, lng: 34.4419, radius: 350 },
+  { name: 'Cairo Corporate Headquarters', lat: 30.0444, lng: 31.2357, radius: 300 },
+];
 
 export function OwnerDashboard() {
   const [users, setUsers] = useState([]);
@@ -24,7 +33,7 @@ export function OwnerDashboard() {
   });
   const [savingCompany, setSavingCompany] = useState(false);
 
-  // Branch creation state
+  // Branch creation state & resort presets
   const [newBranch, setNewBranch] = useState({
     name: '',
     lat: '',
@@ -51,6 +60,14 @@ export function OwnerDashboard() {
   // User Management state
   const [newUser, setNewUser] = useState({ name: '', username: '', role: 'employee' });
   const [addingUser, setAddingUser] = useState(false);
+
+  // Direct Password Reset state
+  const [resetModalUser, setResetModalUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('NewPass123!');
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  // Payroll CSV export state
+  const [exportingPayroll, setExportingPayroll] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -195,7 +212,127 @@ export function OwnerDashboard() {
     );
   }
 
-  // 5. Submit Point Adjustment
+  // 5. Apply Resort Preset to form
+  function applyResortPreset(preset) {
+    setNewBranch({
+      name: preset.name,
+      lat: preset.lat,
+      lng: preset.lng,
+      radius: preset.radius,
+    });
+    setMsg(`Preset applied: ${preset.name}`);
+  }
+
+  // 6. Direct Password Reset
+  async function submitPasswordReset(e) {
+    e.preventDefault();
+    if (!resetModalUser || !newPassword.trim()) {
+      setErr('New password cannot be empty');
+      return;
+    }
+    setErr('');
+    setMsg('');
+    setResettingPassword(true);
+    try {
+      if (api.resetUserPassword) {
+        await api.resetUserPassword(resetModalUser.id, newPassword.trim());
+      }
+      setMsg(`Password for "${resetModalUser.name || resetModalUser.username}" reset successfully.`);
+      setResetModalUser(null);
+      setNewPassword('NewPass123!');
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setResettingPassword(false);
+    }
+  }
+
+  // 7. Export Payroll to CSV (Excel)
+  async function exportPayroll() {
+    setErr('');
+    setMsg('');
+    setExportingPayroll(true);
+    try {
+      let csvContent = '';
+      let filename = `payroll-report-${(company.company_name || 'attendance').toLowerCase().replace(/\s+/g, '-')}.csv`;
+
+      if (api.exportPayrollCsv) {
+        const res = await api.exportPayrollCsv();
+        if (res && res.csv) {
+          csvContent = res.csv;
+          if (res.filename) filename = res.filename;
+        }
+      }
+
+      if (!csvContent) {
+        const headers = [
+          'Employee ID',
+          'Name',
+          'Username',
+          'Role',
+          'Green Points',
+          'Red Penalties',
+          `Red Deduction (${currency})`,
+          'Black Penalties',
+          `Black Deduction (${currency})`,
+          `Total Deductions (${currency})`,
+          'Approved Rewards',
+          `Net Adjustment (${currency})`,
+        ];
+
+        const rows = users.map((u) => {
+          const redDed = (u.red || 0) * redVal;
+          const blackDed = (u.black || 0) * blackVal;
+          const totalDed = redDed + blackDed;
+          const userApprovedRewards = rewards.filter(
+            (r) => r.user_id === u.id && r.status === 'approved'
+          );
+          const net = userApprovedRewards.length * 2200 - totalDed;
+          return [
+            `#${u.id}`,
+            `"${u.name || u.username}"`,
+            `"${u.username}"`,
+            u.role || 'employee',
+            u.green || 0,
+            u.red || 0,
+            redDed,
+            u.black || 0,
+            blackDed,
+            totalDed,
+            userApprovedRewards.length,
+            net,
+          ].join(',');
+        });
+
+        csvContent = [headers.join(','), ...rows].join('\n');
+      }
+
+      if (
+        typeof window !== 'undefined' &&
+        window.URL &&
+        typeof window.URL.createObjectURL === 'function' &&
+        window.Blob
+      ) {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+
+      setMsg(`Payroll CSV export complete: ${users.length} employee records exported.`);
+    } catch (e) {
+      setErr(`Payroll export failed: ${e.message}`);
+    } finally {
+      setExportingPayroll(false);
+    }
+  }
+
+  // 8. Submit Point Adjustment
   async function submitAdjust(e) {
     e.preventDefault();
     if (!adj.user_id) {
@@ -220,7 +357,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 6. Submit Settings (Penalties & Arrival Windows)
+  // 9. Submit Settings (Penalties & Arrival Windows)
   async function submitSettings(e) {
     e.preventDefault();
     setErr('');
@@ -239,7 +376,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 7. Add User
+  // 10. Add User
   async function submitAddUser(e) {
     e.preventDefault();
     if (!newUser.name.trim() || !newUser.username.trim()) {
@@ -263,7 +400,7 @@ export function OwnerDashboard() {
     }
   }
 
-  // 8. Remove User
+  // 11. Remove User
   async function removeUser(user) {
     setErr('');
     setMsg('');
@@ -418,18 +555,18 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* 2. Work Locations & Multi-Branch Geofences */}
+      {/* 2. Multiple Resort Geofencing & Workplace Branches */}
       <Card className="mb">
-        <h3>Workplace Branches & Multi-Location Geofences</h3>
+        <h3>Multiple Resort Geofencing & Workplace Branches</h3>
         <p className="muted text-sm mb-sm">
-          Define physical offices, studios, or resorts anywhere in the world. When remote mode is disabled, staff must check in within the specified geofence radius.
+          Define physical resorts, offices, or studios anywhere in the world. When remote mode is disabled, staff must check in within the specified geofence radius.
         </p>
 
         {branches.length > 0 ? (
           <table className="mb">
             <thead>
               <tr>
-                <th>Branch Name</th>
+                <th>Resort / Branch Name</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
                 <th>Radius (Meters)</th>
@@ -461,7 +598,27 @@ export function OwnerDashboard() {
           <p className="muted mb">No physical branches configured. Add a workplace location below or enable remote check-in.</p>
         )}
 
-        <h4>Add New Workplace Branch</h4>
+        <h4>Add Resort / Branch Location</h4>
+
+        {/* Resort Presets */}
+        <div className="mb-sm">
+          <span className="muted text-sm font-semibold block mb-xs">
+            Quick Fill Resort Presets:
+          </span>
+          <div className="preset-bar">
+            {RESORT_PRESETS.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                className="preset-btn"
+                onClick={() => applyResortPreset(p)}
+              >
+                + {p.name.split(' (')[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <form onSubmit={submitAddBranch} className="form" noValidate>
           <div className="two">
             <div>
@@ -470,7 +627,7 @@ export function OwnerDashboard() {
                 id="branch-name"
                 required
                 aria-label="Branch name"
-                placeholder="e.g. London Office, Dubai Media City, Alexandria Studio"
+                placeholder="e.g. Rixos Radamis Sharm, London Office, Dubai Media City"
                 value={newBranch.name}
                 onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
               />
@@ -537,7 +694,71 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* 3. System Policy & Penalty Configuration */}
+      {/* 3. Payroll & Compensation Summary with CSV Export */}
+      <Card className="mb">
+        <div className="row-head">
+          <div>
+            <h3>Payroll & Compensation Export</h3>
+            <p className="muted text-sm mb-sm">
+              Calculate net employee pay adjustments based on penalties, milestone bonuses, and export formatted CSV reports for accounting and Excel.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={exportPayroll}
+            disabled={exportingPayroll}
+          >
+            {exportingPayroll ? 'Exporting…' : 'Export Payroll to CSV (Excel)'}
+          </Button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Green (Bonus)</th>
+              <th>Red Penalties</th>
+              <th>Black Penalties</th>
+              <th>Total Deductions</th>
+              <th>Approved Rewards</th>
+              <th>Net Adjustment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => {
+              const redDed = (u.red || 0) * redVal;
+              const blackDed = (u.black || 0) * blackVal;
+              const totalDed = redDed + blackDed;
+              const userApprovedRewards = rewards.filter(
+                (r) => r.user_id === u.id && r.status === 'approved'
+              );
+              const rewardVal = userApprovedRewards.length * 2200;
+              const net = rewardVal - totalDed;
+              return (
+                <tr key={u.id}>
+                  <td>
+                    <strong>{u.name || u.username}</strong>
+                    <small className="block muted">@{u.username}</small>
+                  </td>
+                  <td className="green-text font-semibold">{u.green || 0} pts</td>
+                  <td>{u.red || 0} (-{redDed} {currency})</td>
+                  <td>{u.black || 0} (-{blackDed} {currency})</td>
+                  <td className="red-text font-semibold">{totalDed} {currency}</td>
+                  <td className="green-text font-semibold">{userApprovedRewards.length} ({rewardVal} {currency})</td>
+                  <td>
+                    <strong className={net >= 0 ? 'green-text' : 'red-text'}>
+                      {net >= 0 ? `+${net}` : net} {currency}
+                    </strong>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+
+      {/* 4. System Policy & Penalty Configuration */}
       <Card className="mb">
         <h3>Attendance Shift Windows & Financial Penalties</h3>
         <p className="muted text-sm mb-sm">
@@ -651,7 +872,7 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* 4. User Management Section */}
+      {/* 5. User Management Section */}
       <Card className="mb">
         <h3>User Management: Add Employee / Admin</h3>
         <p className="muted text-sm mb-sm">
@@ -690,7 +911,7 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* 5. Employee List Table with Remove Action */}
+      {/* 6. Employee List Table with Direct Password Reset & Remove Actions */}
       <Card>
         <h3>Staff Attendance & Point Balances</h3>
         {loading ? (
@@ -706,6 +927,7 @@ export function OwnerDashboard() {
                 <th>Red ({redVal} {currency})</th>
                 <th>Black ({blackVal} {currency})</th>
                 <th>Current Deductions</th>
+                <th>Account Security</th>
                 <th>Manage</th>
               </tr>
             </thead>
@@ -731,6 +953,19 @@ export function OwnerDashboard() {
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
+                        aria-label={`Reset password for ${u.name || u.username}`}
+                        onClick={() => {
+                          setResetModalUser(u);
+                          setNewPassword('NewPass123!');
+                        }}
+                      >
+                        Reset Password
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
                         aria-label={`Remove user ${u.name || u.username}`}
                         onClick={() => removeUser(u)}
                       >
@@ -742,7 +977,7 @@ export function OwnerDashboard() {
               })}
               {!users.length && (
                 <tr>
-                  <td colSpan="8" className="muted text-center">
+                  <td colSpan="9" className="muted text-center">
                     No employees found.
                   </td>
                 </tr>
@@ -752,7 +987,46 @@ export function OwnerDashboard() {
         )}
       </Card>
 
-      {/* 6. Point Adjustment Form */}
+      {/* Direct Password Reset Modal */}
+      {resetModalUser && (
+        <Modal onClose={() => setResetModalUser(null)}>
+          <h3>Reset Password for {resetModalUser.name || resetModalUser.username}</h3>
+          <p className="muted text-sm mb">
+            Set a new temporary password for this photographer/employee account. They can immediately sign in with these credentials.
+          </p>
+
+          <form onSubmit={submitPasswordReset} className="form">
+            <div>
+              <label htmlFor="reset-new-password" className="field-label">
+                New Password
+              </label>
+              <input
+                id="reset-new-password"
+                type="text"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+
+            <div className="btn-row mt">
+              <Button disabled={resettingPassword}>
+                {resettingPassword ? 'Resetting…' : 'Confirm Password Reset'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setResetModalUser(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* 7. Point Adjustment Form */}
       <Card className="mt">
         <h3>Administrative Point Adjustment</h3>
         <p className="muted text-sm mb-sm">
@@ -804,7 +1078,7 @@ export function OwnerDashboard() {
         </form>
       </Card>
 
-      {/* 7. Leave Requests Table */}
+      {/* 8. Leave Requests Table */}
       <Card className="mt">
         <h3>Leave Requests & Absence Waiver</h3>
         <table>
@@ -867,7 +1141,7 @@ export function OwnerDashboard() {
         </table>
       </Card>
 
-      {/* 8. Reward Requests Table */}
+      {/* 9. Reward Requests Table */}
       <Card className="mt">
         <h3>{company.reward_threshold || 30}-Point Milestone Reward Claims ({company.reward_amount || 'Milestone Reward'})</h3>
         <table>

@@ -567,6 +567,280 @@ th {
   width: min(380px, 90vw);
 }
 
+/* Dark Theme for Dim Photography Studios */
+[data-theme="dark"] {
+  --primary: #818cf8;
+  --primary-hover: #6366f1;
+  --green: #4ade80;
+  --green-bg: #064e3b;
+  --red: #f87171;
+  --red-bg: #450a0a;
+  --black: #f1f5f9;
+  --amber: #fbbf24;
+  --amber-bg: #451a03;
+  --bg: #0b0f19;
+  --card-bg: #111827;
+  --border: #1f2937;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+}
+
+[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .sidebar {
+  background: #111827;
+  border-right-color: var(--border);
+}
+
+[data-theme="dark"] .topbar {
+  background: #111827;
+  border-bottom-color: var(--border);
+}
+
+[data-theme="dark"] .sidebar a {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .sidebar a:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .sidebar a.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #374151;
+}
+
+[data-theme="dark"] table th {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] table td {
+  border-bottom-color: #1f2937;
+}
+
+[data-theme="dark"] tr:hover td {
+  background: #172033;
+}
+
+[data-theme="dark"] .modal-card {
+  background: #111827;
+  border-color: #374151;
+}
+
+[data-theme="dark"] .btn-ghost {
+  border-color: #374151;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .bar {
+  background: #1e293b;
+}
+
+[data-theme="dark"] code {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .zone-info {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .login-wrap {
+  background: #0b0f19;
+}
+
+[data-theme="dark"] .role-employee {
+  background: #082f49;
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .role-owner {
+  background: #2e1065;
+  color: #c084fc;
+}
+
+/* Monthly Attendance Calendar */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.calendar-header-day {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 6px 0;
+}
+
+.calendar-cell {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 6px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.1s ease;
+}
+
+.calendar-cell:hover {
+  transform: translateY(-2px);
+}
+
+.calendar-cell-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-day-num {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.calendar-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.cal-early {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.cal-normal {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.cal-late {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.cal-absent {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.cal-leave {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.cal-off {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cal-absent {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-color: #374151;
+}
+
+[data-theme="dark"] .cal-off {
+  background: #111827;
+  color: #64748b;
+}
+
+/* Points History Delta Badges */
+.delta-pill {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.delta-green {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.delta-red {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.delta-black {
+  background: #111827;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .delta-black {
+  background: #374151;
+  color: #f8fafc;
+}
+
+/* Preset buttons */
+.preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.preset-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: #334155;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .preset-btn {
+  background: #1e293b;
+  border-color: #374151;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .preset-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
 /* Responsive: stack sidebar and grids on mobile */
 @media (max-width: 768px) {
   .shell {
@@ -584,6 +858,9 @@ th {
   }
   .two {
     grid-template-columns: 1fr;
+  }
+  .calendar-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   table {
     display: block;

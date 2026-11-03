@@ -21,6 +21,8 @@ describe('Layout Component', () => {
     cleanup();
     vi.clearAllMocks();
     mockUser = { name: 'rico', role: 'employee' };
+    localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
   });
 
   it('renders employee navigation links and user badge', () => {
@@ -69,5 +71,23 @@ describe('Layout Component', () => {
     await userEvent.click(logoutBtn);
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
-});
 
+  it('toggles dark theme for dim photography editing studios', async () => {
+    render(
+      <MemoryRouter>
+        <Layout>
+          <div>Content</div>
+        </Layout>
+      </MemoryRouter>
+    );
+
+    const themeBtn = screen.getByRole('button', { name: /Switch to dark mode/i });
+    expect(themeBtn).toHaveTextContent(/🌙 Dark/i);
+
+    await userEvent.click(themeBtn);
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(screen.getByRole('button', { name: /Switch to light mode/i })).toHaveTextContent(/☀️ Light/i);
+  });
+});

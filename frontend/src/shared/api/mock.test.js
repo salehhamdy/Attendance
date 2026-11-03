@@ -190,4 +190,33 @@ describe('Shared API Mock Module Rules', () => {
     const afterDelete = await mockApi.ownerUsers();
     expect(afterDelete.users.some((u) => u.username === 'youssef')).toBe(false);
   });
+
+  it('allows owner to reset user password directly', async () => {
+    const resetRes = await mockApi.resetUserPassword(1, 'SecureNewPass2026!');
+    expect(resetRes.success).toBe(true);
+    expect(resetRes.message).toMatch(/reset successfully/i);
+
+    await expect(mockApi.resetUserPassword(1, '')).rejects.toThrow(/cannot be empty/i);
+    await expect(mockApi.resetUserPassword(9999, 'pass')).rejects.toThrow(/User not found/i);
+  });
+
+  it('exports payroll report as CSV', async () => {
+    const exportRes = await mockApi.exportPayrollCsv();
+    expect(exportRes.filename).toMatch(/\.csv$/);
+    expect(exportRes.csv).toContain('Employee ID,Name,Username,Role');
+    expect(exportRes.rowCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('retrieves points history and monthly attendance calendar data', async () => {
+    const history = await mockApi.getPointsHistory();
+    expect(Array.isArray(history)).toBe(true);
+    expect(history.length).toBeGreaterThan(0);
+    expect(history[0]).toHaveProperty('action');
+    expect(history[0]).toHaveProperty('delta_green');
+
+    const calendar = await mockApi.getAttendanceCalendar();
+    expect(Array.isArray(calendar)).toBe(true);
+    expect(calendar.length).toBeGreaterThan(0);
+    expect(calendar[0]).toHaveProperty('status');
+  });
 });

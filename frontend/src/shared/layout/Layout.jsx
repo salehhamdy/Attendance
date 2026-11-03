@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../modules/auth/index.js';
 
 export function Layout({ children }) {
   const { user, logout } = useAuth();
   const owner = user?.role === 'owner';
+
+  const [theme, setTheme] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('theme') === 'dark'
+        ? 'dark'
+        : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('theme', theme);
+      }
+    } catch {
+      // Safe fallback for testing environments
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   return (
     <div className="shell">
@@ -39,9 +66,19 @@ export function Layout({ children }) {
               {owner ? 'Owner' : 'Photographer'}
             </span>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>
-            Logout
-          </button>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </header>
 
         <main className="content">{children}</main>
@@ -51,4 +88,3 @@ export function Layout({ children }) {
 }
 
 export default Layout;
-

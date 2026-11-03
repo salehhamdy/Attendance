@@ -18,6 +18,8 @@ vi.mock('../../../shared/api/index.js', () => ({
     updateCompanySettings: vi.fn(),
     addBranch: vi.fn(),
     removeBranch: vi.fn(),
+    resetUserPassword: vi.fn(),
+    exportPayrollCsv: vi.fn(),
   },
 }));
 
@@ -87,11 +89,11 @@ describe('Owner Module - OwnerDashboard Screen', () => {
 
     const ricoElements = await screen.findAllByText('rico');
     expect(ricoElements.length).toBeGreaterThan(0);
-    expect(screen.getByText('sara')).toBeInTheDocument();
+    expect(screen.getAllByText('sara').length).toBeGreaterThan(0);
     // sara has 1 black point => 1000 EGP deduction
-    expect(screen.getByText('1000 EGP')).toBeInTheDocument();
+    expect(screen.getAllByText('1000 EGP').length).toBeGreaterThan(0);
     // rico has 1 red point => 250 EGP deduction
-    expect(screen.getByText('250 EGP')).toBeInTheDocument();
+    expect(screen.getAllByText('250 EGP').length).toBeGreaterThan(0);
   });
 
   it('allows owner to configure universal company profile, currency, and remote check-in policy', async () => {
@@ -130,6 +132,39 @@ describe('Owner Module - OwnerDashboard Screen', () => {
       })
     );
     expect(await screen.findByRole('status')).toHaveTextContent(/updated successfully/i);
+  });
+
+  it('allows owner to apply a resort geofence preset and add branch', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.addBranch.mockResolvedValueOnce({
+      id: 5,
+      name: 'Rixos Premium Seagate (Nabq Sharm)',
+      lat: 28.0267,
+      lng: 34.4326,
+      radius: 350,
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const presetBtn = screen.getByRole('button', { name: /\+ Rixos Premium Seagate/i });
+    await userEvent.click(presetBtn);
+
+    expect(screen.getByLabelText(/^Branch Name$/i)).toHaveValue('Rixos Premium Seagate (Nabq Sharm)');
+    expect(screen.getByLabelText(/Allowed Geofence Radius/i)).toHaveValue(350);
+
+    const addBranchBtn = screen.getByRole('button', { name: /Add Branch Location/i });
+    await userEvent.click(addBranchBtn);
+
+    expect(api.addBranch).toHaveBeenCalledWith({
+      name: 'Rixos Premium Seagate (Nabq Sharm)',
+      lat: 28.0267,
+      lng: 34.4326,
+      radius: 350,
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent(/added successfully/i);
   });
 
   it('allows owner to add a new physical branch location with GPS geofence', async () => {
@@ -179,6 +214,49 @@ describe('Owner Module - OwnerDashboard Screen', () => {
 
     expect(api.removeBranch).toHaveBeenCalledWith(2);
     expect(await screen.findByRole('status')).toHaveTextContent(/removed from company locations/i);
+  });
+
+  it('allows owner to directly reset an employee password', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.resetUserPassword.mockResolvedValueOnce({ success: true });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const resetBtn = screen.getByRole('button', { name: /Reset password for rico/i });
+    await userEvent.click(resetBtn);
+
+    expect(screen.getByText(/Reset Password for rico/i)).toBeInTheDocument();
+    const newPassInput = screen.getByLabelText(/New Password/i);
+    await userEvent.clear(newPassInput);
+    await userEvent.type(newPassInput, 'SharmPhoto2026!');
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirm Password Reset/i });
+    await userEvent.click(confirmBtn);
+
+    expect(api.resetUserPassword).toHaveBeenCalledWith(1, 'SharmPhoto2026!');
+    expect(await screen.findByRole('status')).toHaveTextContent(/Password for "rico" reset successfully/i);
+  });
+
+  it('allows owner to export payroll data to CSV/Excel', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.exportPayrollCsv.mockResolvedValueOnce({
+      filename: 'payroll-report.csv',
+      csv: 'Employee ID,Name,Net Adjustment\n#1,rico,0',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const exportBtn = screen.getByRole('button', { name: /Export Payroll to CSV/i });
+    await userEvent.click(exportBtn);
+
+    expect(api.exportPayrollCsv).toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent(/Payroll CSV export complete/i);
   });
 
   it('allows owner to configure penalty values and arrival time windows', async () => {

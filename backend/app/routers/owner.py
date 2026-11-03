@@ -1,6 +1,5 @@
 import secrets
 import string
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -29,6 +28,8 @@ def get_owner_dashboard_data(
     ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
     if not ws:
         ws = db.query(Workspace).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
     users_query = db.query(User).filter(User.role != "superadmin")
     if current_user.role == "owner":
@@ -468,7 +469,7 @@ def delete_user(
         actor=current_user.name,
         action="User Deleted",
         detail=f"Deleted user '{user.username}' ({user.name})",
-        workspace_id=user.workspace_id
+        workspace_id=user.workspace_id or current_user.workspace_id or 1
     )
     db.commit()
     return {"success": True}
@@ -508,7 +509,7 @@ def reset_password(
         actor=current_user.name,
         action="Password Reset",
         detail=f"Password manually reset for user '{user.username}'",
-        workspace_id=user.workspace_id
+        workspace_id=user.workspace_id or current_user.workspace_id or 1
     )
     db.commit()
     return {"success": True, "message": f"Password reset successfully for {user.username}"}
@@ -647,7 +648,7 @@ def assign_user_shift(
         actor=current_user.name,
         action="Shift Assigned",
         detail=f"Assigned user '{user.username}' to shift '{shift.name}'",
-        workspace_id=user.workspace_id
+        workspace_id=user.workspace_id or current_user.workspace_id or 1
     )
     db.commit()
     return {"success": True, "shift_id": shift.id, "shift_name": shift.name}

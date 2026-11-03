@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -132,12 +133,18 @@ def record_checkin(
     ws = current_user.workspace
     if not ws:
         ws = db.query(Workspace).first()
+    if not ws:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workspace configuration missing"
+        )
 
-    branches = ws.branches if ws else []
+    ws_kiosk = ws.kiosk_code if ws else "SHARM1"
+    branches = list(ws.branches) if ws else []
     allow_remote = ws.allow_remote if ws else False
-    kiosk_code_match = (
+    kiosk_code_match = bool(
         req.kiosk_code and
-        req.kiosk_code.strip().upper() == (ws.kiosk_code or "").strip().upper()
+        req.kiosk_code.strip().upper() == (ws_kiosk or "").strip().upper()
     )
 
     if req.kiosk_code and not kiosk_code_match:
@@ -201,8 +208,8 @@ def record_checkin(
         note=point_msg,
         photo=req.photo,
         accuracy=acc,
-        kiosk_verified=bool(kiosk_code_match),
-        is_remote=bool(allow_remote and not in_zone),
+        kiosk_verified=kiosk_code_match,
+        is_remote=allow_remote and not in_zone,
         checkin_lat=req.lat,
         checkin_lng=req.lng
     )
@@ -221,10 +228,10 @@ def record_checkin(
         "zone": zone_name,
         "branch": {"id": branch.id, "name": branch.name} if branch else None,
         "allow_remote": allow_remote,
-        "is_remote": bool(allow_remote and not in_zone),
+        "is_remote": allow_remote and not in_zone,
         "photo": req.photo,
         "accuracy": acc,
-        "kiosk_verified": bool(kiosk_code_match),
+        "kiosk_verified": kiosk_code_match,
         "delta_green": delta_g,
         "summary": summary_data
     }
@@ -257,8 +264,8 @@ def get_user_history(
 
 @router.get("/me/calendar")
 def get_user_calendar(
-    year: int = None,
-    month: int = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

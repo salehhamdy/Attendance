@@ -1,6 +1,6 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Tuple
+from typing import Tuple, Optional
 from ..config import settings
 from ..models import Workspace, User
 
@@ -11,7 +11,7 @@ def get_current_cairo_time() -> datetime:
 
 def time_to_minutes(time_str: str) -> int:
     try:
-        parts = str(time_str or "00:00").split(":")
+        parts = (time_str or "00:00").split(":")
         h = int(parts[0]) if len(parts) > 0 else 0
         m = int(parts[1]) if len(parts) > 1 else 0
         return h * 60 + m
@@ -22,7 +22,7 @@ def classify_checkin_points(
     user: User,
     workspace: Workspace,
     has_approved_leave: bool = False,
-    override_time: datetime = None
+    override_time: Optional[datetime] = None
 ) -> Tuple[int, int, int, str, str, str]:
     """
     Classifies check-in based on Africa/Cairo local time and configured arrival windows.

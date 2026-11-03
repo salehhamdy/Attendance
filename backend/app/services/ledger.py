@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from ..models import User, Workspace, AttendanceLedger, AuditLog
@@ -80,7 +81,7 @@ def log_audit_event(
     action: str,
     detail: str,
     ip: str = "Local Platform",
-    workspace_id: int = None
+    workspace_id: Optional[int] = None
 ) -> AuditLog:
     """
     Creates an immutable audit log entry.

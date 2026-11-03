@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Any, Union
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 # Auth Schemas
 class LoginRequest(BaseModel):

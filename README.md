@@ -50,7 +50,7 @@ frontend/src/
 ```
 
 ## System Status
-- **Frontend (Modular Monolith):** Fully implemented and verified with **79 unit and integration tests across 11 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
+- **Frontend (Modular Monolith):** Fully implemented and verified with **83 unit and integration tests across 11 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
 - **Backend (FastAPI + PostgreSQL):** Planned. The frontend includes a comprehensive in-memory mock engine (`VITE_MOCK=1`) for standalone execution, demonstration, and automated testing.
 
 ## Quick Start (Frontend)
@@ -129,7 +129,7 @@ npm run build
 - Once approved by the owner, absence penalties (Black Points) are waived for the duration.
 
 ## Test Suite
-- Total Tests: **79 passing** across 11 modular test suites.
+- Total Tests: **83 passing** across 11 modular test suites.
 - Coverage:
   - `src/modules/auth/auth.test.jsx`: Authentication provider, session lifecycle, token parsing (3 tests).
   - `src/modules/auth/screens/LoginScreen.test.jsx`: Login credentials validation and error states (2 tests).
@@ -139,6 +139,6 @@ npm run build
   - `src/modules/rewards/components/RewardModal.test.jsx`: Reward payout selector, validation, and submission (4 tests).
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: Real-time stats, dynamic currency penalty calculations, progress bar, point exchange toggles, monthly attendance calendar, and points history ledger (6 tests).
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: Date range validation, request submission, and history table (4 tests).
-  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Stats cards, immutable superadmin protection, owner searching, provisioning, cascading suspension, reinstatement, and cascading deletion (6 tests).
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Company profile & currency configuration, resort geofence presets, multi-branch addition/removal, direct password reset, payroll CSV export, dynamic penalty config, arrival time window adjustments, user addition/removal, and approval queues (13 tests).
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Stats cards, immutable superadmin protection, owner searching, provisioning, cascading suspension, reinstatement, and cascading deletion (7 tests).
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Company profile & currency configuration, resort geofence presets, multi-branch addition/removal, direct password reset, payroll CSV export, dynamic penalty config, arrival time window adjustments, user addition/removal, form validation, and approval queues (16 tests).
   - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, multi-branch geofencing, remote check-in, password reset, payroll CSV export, points history, calendar retrieval, superadmin immutability, cascading suspension, and cascading removal (22 tests).

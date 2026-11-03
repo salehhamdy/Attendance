@@ -396,4 +396,43 @@ describe('Owner Module - OwnerDashboard Screen', () => {
     expect(api.approveReward).toHaveBeenCalledWith(20);
     expect(await screen.findByRole('status')).toHaveTextContent(/approved for payment/i);
   });
+
+  it('validates required fields when adding a branch', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const addBranchBtn = screen.getByRole('button', { name: /Add Branch Location/i });
+    await userEvent.click(addBranchBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Branch name and valid latitude\/longitude coordinates are required/i
+    );
+  });
+
+  it('validates required fields when adding a user', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const addBtn = screen.getByRole('button', { name: /Add User Account/i });
+    await userEvent.click(addBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Photographer name and username are required/i
+    );
+  });
+
+  it('renders an error alert when dashboard load fails', async () => {
+    api.ownerUsers.mockRejectedValueOnce(new Error('Owner API failure'));
+    render(<OwnerDashboard />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Owner API failure');
+  });
 });

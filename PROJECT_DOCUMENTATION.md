@@ -131,7 +131,7 @@ frontend/src/
 ---
 
 ## 4. Quality Assurance & Verification
-- **Test Suite Execution:** 79 tests across 11 modular test suites in Vitest:
+- **Test Suite Execution:** 83 tests across 11 modular test suites in Vitest:
   - `src/modules/auth/auth.test.jsx`: 3 tests
   - `src/modules/auth/screens/LoginScreen.test.jsx`: 2 tests
   - `src/shared/ui/ui.test.jsx`: 10 tests
@@ -140,9 +140,9 @@ frontend/src/
   - `src/modules/rewards/components/RewardModal.test.jsx`: 4 tests
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 6 tests (includes monthly attendance calendar & points history ledger)
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: 4 tests
-  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: 6 tests (includes immutable superadmin protection, search, provisioning, cascading suspension, reinstatement, and deletion)
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 13 tests (includes resort presets, payroll export, password reset, company profile, multi-branch CRUD, penalty settings, arrival windows, user addition/removal)
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: 7 tests (includes immutable superadmin protection, search, provisioning, cascading suspension, reinstatement, deletion, and error state)
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 16 tests (includes resort presets, payroll export, password reset, company profile, multi-branch CRUD, penalty settings, arrival windows, user addition/removal, form validations, error handling)
   - `src/shared/api/mock.test.js`: 22 tests (includes superadmin immutability, cascading suspension, cascading removal, password reset, payroll CSV export, points history, calendar retrieval, multi-branch geofencing, remote check-in, dynamic penalties, user CRUD)
-  - **Result: 79 passed / 79 tests (100% success rate)**
+  - **Result: 83 passed / 83 tests (100% success rate)**
 - **Static Analysis:** ESLint executed on `src/` with zero warnings and zero errors.
 - **Production Build:** Vite production bundle completed cleanly in `dist/`.

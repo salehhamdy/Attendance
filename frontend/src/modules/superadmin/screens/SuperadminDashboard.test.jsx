@@ -84,7 +84,7 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
     expect(screen.getByText('7 members')).toBeInTheDocument();
   });
 
-  it('filters owners by search term', async () => {
+  it('filters owners by search term and shows empty state when no match', async () => {
     api.superadminOwners.mockResolvedValueOnce(mockSuperadminData);
     render(<SuperadminDashboard />);
 
@@ -94,6 +94,10 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
 
     expect(screen.getByText('Nour Bakr')).toBeInTheDocument();
     expect(screen.queryByText('Layla Mansour')).not.toBeInTheDocument();
+
+    await userEvent.clear(searchInput);
+    await userEvent.type(searchInput, 'NonExistentWorkspace');
+    expect(screen.getByText('No matching owners found.')).toBeInTheDocument();
   });
 
   it('allows superadmin to create and assign a new owner to a workspace', async () => {
@@ -185,5 +189,12 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
 
     expect(api.removeOwner).toHaveBeenCalledWith(10);
     expect(await screen.findByRole('status')).toHaveTextContent(/permanently removed/i);
+  });
+
+  it('renders an error alert when dashboard load fails', async () => {
+    api.superadminOwners.mockRejectedValueOnce(new Error('Superadmin network timeout'));
+    render(<SuperadminDashboard />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Superadmin network timeout');
   });
 });

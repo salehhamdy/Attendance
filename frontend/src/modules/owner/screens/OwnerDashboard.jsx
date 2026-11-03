@@ -879,7 +879,7 @@ export function OwnerDashboard() {
           Create new staff, employee, or management accounts with portal access.
         </p>
 
-        <form onSubmit={submitAddUser} className="form inline">
+        <form onSubmit={submitAddUser} className="form inline" noValidate>
           <input
             required
             aria-label="New user full name"

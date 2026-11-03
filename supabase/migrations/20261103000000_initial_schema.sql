@@ -323,7 +323,7 @@ ALTER TABLE public.reward_claims ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Helper function: get role from app_metadata (never user_metadata)
-CREATE OR REPLACE FUNCTION auth.get_jwt_role()
+CREATE OR REPLACE FUNCTION public.get_jwt_role()
 RETURNS TEXT AS $$
     SELECT COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'employee');
 $$ LANGUAGE sql STABLE;
@@ -332,20 +332,20 @@ $$ LANGUAGE sql STABLE;
 CREATE POLICY "profiles_select_auth" ON public.profiles
 FOR SELECT TO authenticated
 USING (
-    auth.get_jwt_role() = 'superadmin' OR
+    public.get_jwt_role() = 'superadmin' OR
     workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid()))
 );
 
 CREATE POLICY "profiles_update_auth" ON public.profiles
 FOR UPDATE TO authenticated
 USING (
-    auth.get_jwt_role() = 'superadmin' OR
-    (auth.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid()))) OR
+    public.get_jwt_role() = 'superadmin' OR
+    (public.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid()))) OR
     id = (SELECT auth.uid())
 )
 WITH CHECK (
-    auth.get_jwt_role() = 'superadmin' OR
-    (auth.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid()))) OR
+    public.get_jwt_role() = 'superadmin' OR
+    (public.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid()))) OR
     id = (SELECT auth.uid())
 );
 
@@ -353,25 +353,25 @@ WITH CHECK (
 CREATE POLICY "ledger_select_auth" ON public.attendance_ledger
 FOR SELECT TO authenticated
 USING (
-    auth.get_jwt_role() = 'superadmin' OR
+    public.get_jwt_role() = 'superadmin' OR
     user_id = (SELECT auth.uid()) OR
-    (auth.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
+    (public.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
 );
 
 CREATE POLICY "ledger_insert_auth" ON public.attendance_ledger
 FOR INSERT TO authenticated
 WITH CHECK (
     user_id = (SELECT auth.uid()) OR
-    auth.get_jwt_role() IN ('owner', 'superadmin')
+    public.get_jwt_role() IN ('owner', 'superadmin')
 );
 
 -- Leave Policies
 CREATE POLICY "leave_select_auth" ON public.leave_requests
 FOR SELECT TO authenticated
 USING (
-    auth.get_jwt_role() = 'superadmin' OR
+    public.get_jwt_role() = 'superadmin' OR
     user_id = (SELECT auth.uid()) OR
-    (auth.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
+    (public.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
 );
 
 CREATE POLICY "leave_insert_auth" ON public.leave_requests
@@ -380,16 +380,16 @@ WITH CHECK (user_id = (SELECT auth.uid()));
 
 CREATE POLICY "leave_update_auth" ON public.leave_requests
 FOR UPDATE TO authenticated
-USING (auth.get_jwt_role() IN ('owner', 'superadmin'))
-WITH CHECK (auth.get_jwt_role() IN ('owner', 'superadmin'));
+USING (public.get_jwt_role() IN ('owner', 'superadmin'))
+WITH CHECK (public.get_jwt_role() IN ('owner', 'superadmin'));
 
 -- Reward Policies
 CREATE POLICY "reward_select_auth" ON public.reward_claims
 FOR SELECT TO authenticated
 USING (
-    auth.get_jwt_role() = 'superadmin' OR
+    public.get_jwt_role() = 'superadmin' OR
     user_id = (SELECT auth.uid()) OR
-    (auth.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
+    (public.get_jwt_role() = 'owner' AND workspace_id = (SELECT workspace_id FROM public.profiles WHERE id = (SELECT auth.uid())))
 );
 
 CREATE POLICY "reward_insert_auth" ON public.reward_claims
@@ -398,30 +398,30 @@ WITH CHECK (user_id = (SELECT auth.uid()));
 
 CREATE POLICY "reward_update_auth" ON public.reward_claims
 FOR UPDATE TO authenticated
-USING (auth.get_jwt_role() IN ('owner', 'superadmin'))
-WITH CHECK (auth.get_jwt_role() IN ('owner', 'superadmin'));
+USING (public.get_jwt_role() IN ('owner', 'superadmin'))
+WITH CHECK (public.get_jwt_role() IN ('owner', 'superadmin'));
 
 -- Audit Logs Policy
 CREATE POLICY "audit_select_superadmin" ON public.audit_logs
 FOR SELECT TO authenticated
-USING (auth.get_jwt_role() = 'superadmin');
+USING (public.get_jwt_role() = 'superadmin');
 
 -- Shifts & Branches Policies
 CREATE POLICY "shifts_select_auth" ON public.shifts FOR SELECT TO authenticated USING (true);
 CREATE POLICY "shifts_modify_owner" ON public.shifts FOR ALL TO authenticated
-USING (auth.get_jwt_role() IN ('owner', 'superadmin'))
-WITH CHECK (auth.get_jwt_role() IN ('owner', 'superadmin'));
+USING (public.get_jwt_role() IN ('owner', 'superadmin'))
+WITH CHECK (public.get_jwt_role() IN ('owner', 'superadmin'));
 
 CREATE POLICY "branches_select_auth" ON public.branches FOR SELECT TO authenticated USING (true);
 CREATE POLICY "branches_modify_owner" ON public.branches FOR ALL TO authenticated
-USING (auth.get_jwt_role() IN ('owner', 'superadmin'))
-WITH CHECK (auth.get_jwt_role() IN ('owner', 'superadmin'));
+USING (public.get_jwt_role() IN ('owner', 'superadmin'))
+WITH CHECK (public.get_jwt_role() IN ('owner', 'superadmin'));
 
 -- Workspaces Policies
 CREATE POLICY "workspaces_select_auth" ON public.workspaces FOR SELECT TO authenticated USING (true);
 CREATE POLICY "workspaces_modify_auth" ON public.workspaces FOR ALL TO authenticated
-USING (auth.get_jwt_role() IN ('owner', 'superadmin'))
-WITH CHECK (auth.get_jwt_role() IN ('owner', 'superadmin'));
+USING (public.get_jwt_role() IN ('owner', 'superadmin'))
+WITH CHECK (public.get_jwt_role() IN ('owner', 'superadmin'));
 
 -- =============================================================================
 -- 11. PERFORMANCE INDEXES (Supabase Postgres Best Practices)

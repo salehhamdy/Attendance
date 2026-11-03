@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../../shared/api/index.js';
-import { Card, Button, StatusBadge, StatCard, Modal } from '../../../shared/ui/index.js';
+import { Card, Button, StatusBadge, StatCard, Modal, useToast } from '../../../shared/ui/index.js';
 
 export const RESORT_PRESETS = [
   { name: 'Rixos Radamis (Sharm El-Sheikh)', lat: 27.9158, lng: 34.33, radius: 300 },
@@ -12,6 +12,7 @@ export const RESORT_PRESETS = [
 ];
 
 export function OwnerDashboard() {
+  const toast = useToast();
   const [users, setUsers] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [rewards, setRewards] = useState([]);
@@ -46,6 +47,20 @@ export function OwnerDashboard() {
   // Point Adjustment state
   const [adj, setAdj] = useState({ user_id: '', color: 'green', delta: 1, reason: '' });
 
+  // Multi-Shift Scheduling state
+  const [shifts, setShifts] = useState([
+    { id: 1, name: 'Morning Shift', start_time: '07:00', end_time: '15:00', description: 'Resort morning & breakfast photography' },
+    { id: 2, name: 'Evening Shift', start_time: '15:00', end_time: '23:00', description: 'Sunset sessions, beach parties & galas' },
+    { id: 3, name: 'Night Shift', start_time: '23:00', end_time: '07:00', description: 'Overnight photo editing & system maintenance' },
+  ]);
+  const [newShift, setNewShift] = useState({
+    name: '',
+    start_time: '07:00',
+    end_time: '15:00',
+    description: '',
+  });
+  const [addingShift, setAddingShift] = useState(false);
+
   // System Configuration (Penalties & Arrival time windows)
   const [settings, setSettings] = useState({
     red_penalty_egp: 250,
@@ -58,7 +73,7 @@ export function OwnerDashboard() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   // User Management state
-  const [newUser, setNewUser] = useState({ name: '', username: '', role: 'employee' });
+  const [newUser, setNewUser] = useState({ name: '', username: '', role: 'employee', shift_id: 1 });
   const [addingUser, setAddingUser] = useState(false);
 
   // Direct Password Reset state
@@ -69,14 +84,20 @@ export function OwnerDashboard() {
   // Payroll CSV export state
   const [exportingPayroll, setExportingPayroll] = useState(false);
 
+  // On-Site Attendance Kiosk Mode state
+  const [kioskCode, setKioskCode] = useState('SHARM1');
+  const [showKioskModal, setShowKioskModal] = useState(false);
+  const [rotatingKiosk, setRotatingKiosk] = useState(false);
+
   const load = () => {
     setLoading(true);
     return Promise.all([
       api.ownerUsers(),
       api.getSettings ? api.getSettings().catch(() => null) : Promise.resolve(null),
       api.getCompanySettings ? api.getCompanySettings().catch(() => null) : Promise.resolve(null),
+      api.getShifts ? api.getShifts().catch(() => null) : Promise.resolve(null),
     ])
-      .then(([r, s, c]) => {
+      .then(([r, s, c, sh]) => {
         const list = Array.isArray(r) ? r : r.users || [];
         setUsers(list);
         setLeaves(
@@ -99,6 +120,11 @@ export function OwnerDashboard() {
         } else if (r && r.company) {
           setCompany(r.company);
         }
+        if (Array.isArray(sh)) {
+          setShifts(sh);
+        } else if (r && r.shifts) {
+          setShifts(r.shifts);
+        }
         setLoading(false);
       })
       .catch((e) => {
@@ -117,9 +143,13 @@ export function OwnerDashboard() {
     try {
       await fn();
       await load();
-      if (successMsg) setMsg(successMsg);
+      if (successMsg) {
+        setMsg(successMsg);
+        toast.success(successMsg);
+      }
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     }
   };
 
@@ -133,10 +163,13 @@ export function OwnerDashboard() {
       if (api.updateCompanySettings) {
         await api.updateCompanySettings(company);
       }
-      setMsg(`Business profile for "${company.company_name}" updated successfully.`);
+      const successNotice = `Business profile for "${company.company_name}" updated successfully.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     } finally {
       setSavingCompany(false);
     }
@@ -161,11 +194,14 @@ export function OwnerDashboard() {
           radius: Number(newBranch.radius) || 300,
         });
       }
-      setMsg(`New branch "${newBranch.name}" added successfully.`);
+      const successNotice = `New branch "${newBranch.name}" added successfully.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
       setNewBranch({ name: '', lat: '', lng: '', radius: 300 });
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     } finally {
       setAddingBranch(false);
     }
@@ -179,10 +215,13 @@ export function OwnerDashboard() {
       if (api.removeBranch) {
         await api.removeBranch(branch.id);
       }
-      setMsg(`Branch "${branch.name}" removed from company locations.`);
+      const successNotice = `Branch "${branch.name}" removed from company locations.`;
+      setMsg(successNotice);
+      toast.info(successNotice);
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     }
   }
 
@@ -237,11 +276,14 @@ export function OwnerDashboard() {
       if (api.resetUserPassword) {
         await api.resetUserPassword(resetModalUser.id, newPassword.trim());
       }
-      setMsg(`Password for "${resetModalUser.name || resetModalUser.username}" reset successfully.`);
+      const successNotice = `Password for "${resetModalUser.name || resetModalUser.username}" reset successfully.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
       setResetModalUser(null);
       setNewPassword('NewPass123!');
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     } finally {
       setResettingPassword(false);
     }
@@ -324,9 +366,13 @@ export function OwnerDashboard() {
         window.URL.revokeObjectURL(url);
       }
 
-      setMsg(`Payroll CSV export complete: ${users.length} employee records exported.`);
+      const successNotice = `Payroll CSV export complete: ${users.length} employee records exported.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
     } catch (e) {
-      setErr(`Payroll export failed: ${e.message}`);
+      const errNotice = `Payroll export failed: ${e.message}`;
+      setErr(errNotice);
+      toast.error(errNotice);
     } finally {
       setExportingPayroll(false);
     }
@@ -347,13 +393,39 @@ export function OwnerDashboard() {
         user_id: Number(adj.user_id) || adj.user_id,
         delta: Number(adj.delta),
       });
-      setMsg(
-        `Successfully updated ${adj.color} points by ${Number(adj.delta) > 0 ? '+' : ''}${adj.delta} for selected employee`
-      );
+      const successNotice = `Successfully updated ${adj.color} points by ${Number(adj.delta) > 0 ? '+' : ''}${adj.delta} for selected employee`;
+      setMsg(successNotice);
+      toast.success(successNotice);
       setAdj({ user_id: '', color: 'green', delta: 1, reason: '' });
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
+    }
+  }
+
+  // 8b. Rotate On-Site Kiosk Code
+  async function handleRotateKiosk() {
+    setRotatingKiosk(true);
+    setErr('');
+    setMsg('');
+    try {
+      let freshCode = '';
+      if (api.rotateKioskCode) {
+        const res = await api.rotateKioskCode();
+        freshCode = res.kiosk_code;
+      } else {
+        freshCode = 'K' + Math.random().toString(36).substring(2, 7).toUpperCase();
+      }
+      setKioskCode(freshCode);
+      const successNotice = `On-site kiosk access code refreshed to "${freshCode}".`;
+      setMsg(successNotice);
+      toast.info(successNotice);
+    } catch (e) {
+      setErr(e.message);
+      toast.error(e.message);
+    } finally {
+      setRotatingKiosk(false);
     }
   }
 
@@ -367,16 +439,82 @@ export function OwnerDashboard() {
       if (api.updateSettings) {
         await api.updateSettings(settings);
       }
-      setMsg('System rules updated: new arrival times & penalty values are now in effect.');
+      const successNotice = 'System rules updated: new arrival times & penalty values are now in effect.';
+      setMsg(successNotice);
+      toast.success(successNotice);
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     } finally {
       setSavingSettings(false);
     }
   }
 
-  // 10. Add User
+  // 10. Multi-Shift Scheduling Handlers
+  async function submitAddShift(e) {
+    e.preventDefault();
+    if (!newShift.name.trim() || !newShift.start_time || !newShift.end_time) {
+      setErr('Shift name, start time, and end time are required');
+      return;
+    }
+    setErr('');
+    setMsg('');
+    setAddingShift(true);
+    try {
+      if (api.createShift) {
+        await api.createShift(newShift);
+      }
+      const successNotice = `New shift template "${newShift.name}" (${newShift.start_time} - ${newShift.end_time}) created successfully.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
+      setNewShift({ name: '', start_time: '07:00', end_time: '15:00', description: '' });
+      await load();
+    } catch (e) {
+      setErr(e.message);
+      toast.error(e.message);
+    } finally {
+      setAddingShift(false);
+    }
+  }
+
+  async function removeShift(shift) {
+    setErr('');
+    setMsg('');
+    try {
+      if (api.deleteShift) {
+        await api.deleteShift(shift.id);
+      }
+      const successNotice = `Shift schedule "${shift.name}" removed. Assigned staff shifted to default schedule.`;
+      setMsg(successNotice);
+      toast.info(successNotice);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+      toast.error(e.message);
+    }
+  }
+
+  async function handleAssignUserShift(user, shiftId) {
+    setErr('');
+    setMsg('');
+    try {
+      if (api.assignUserShift) {
+        await api.assignUserShift(user.id, shiftId);
+      }
+      const targetShift = shifts.find((s) => s.id === Number(shiftId));
+      const shiftName = targetShift ? targetShift.name : 'Selected Shift';
+      const successNotice = `Assigned ${user.name || user.username} to ${shiftName}.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+      toast.error(e.message);
+    }
+  }
+
+  // 11. Add User
   async function submitAddUser(e) {
     e.preventDefault();
     if (!newUser.name.trim() || !newUser.username.trim()) {
@@ -390,17 +528,20 @@ export function OwnerDashboard() {
       if (api.addUser) {
         await api.addUser(newUser);
       }
-      setMsg(`Photographer "${newUser.name}" added successfully.`);
-      setNewUser({ name: '', username: '', role: 'employee' });
+      const successNotice = `Photographer "${newUser.name}" added successfully.`;
+      setMsg(successNotice);
+      toast.success(successNotice);
+      setNewUser({ name: '', username: '', role: 'employee', shift_id: 1 });
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     } finally {
       setAddingUser(false);
     }
   }
 
-  // 11. Remove User
+  // 12. Remove User
   async function removeUser(user) {
     setErr('');
     setMsg('');
@@ -408,10 +549,13 @@ export function OwnerDashboard() {
       if (api.removeUser) {
         await api.removeUser(user.id);
       }
-      setMsg(`User "${user.name || user.username}" removed from the system.`);
+      const successNotice = `User "${user.name || user.username}" removed from the system.`;
+      setMsg(successNotice);
+      toast.info(successNotice);
       await load();
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     }
   }
 
@@ -758,6 +902,140 @@ export function OwnerDashboard() {
         </table>
       </Card>
 
+      {/* On-Site Kiosk Mode Card */}
+      <Card className="mb">
+        <div className="row-head">
+          <div>
+            <h3>On-Site Attendance Kiosk Mode (Physical Proof of Presence)</h3>
+            <p className="muted text-sm mb-sm">
+              Display a live rotating access token on a tablet at your reception, studio, or resort front desk. Staff scan or enter this code on their mobile device to confirm physical presence.
+            </p>
+          </div>
+          <div className="btn-row">
+            <Button type="button" variant="ghost" onClick={handleRotateKiosk} disabled={rotatingKiosk}>
+              {rotatingKiosk ? 'Rotating…' : '🔄 Refresh Kiosk Code'}
+            </Button>
+            <Button type="button" onClick={() => setShowKioskModal(true)}>
+              📺 Launch Kiosk Display
+            </Button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+          <div>
+            <span className="muted text-sm block">Current Branch PIN / Token:</span>
+            <code style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '3px', color: 'var(--primary)' }}>
+              {kioskCode}
+            </code>
+          </div>
+          <small className="muted">
+            Valid across all branches for staff indoor check-in without high-accuracy GPS.
+          </small>
+        </div>
+      </Card>
+
+      {/* Multi-Shift Scheduling & Timetable Templates */}
+      <Card className="mb">
+        <div className="row-head">
+          <div>
+            <h3>Shift Templates & Multi-Shift Scheduling</h3>
+            <p className="muted text-sm mb-sm">
+              Define operational work schedules (Morning, Sunset, Night) and assign team members to tailored shifts.
+            </p>
+          </div>
+        </div>
+
+        {/* Existing Shifts Table */}
+        <table className="mb">
+          <thead>
+            <tr>
+              <th>Shift Name</th>
+              <th>Working Hours</th>
+              <th>Operational Purpose</th>
+              <th>Assigned Staff</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shifts.map((s) => {
+              const assignedCount = users.filter((u) => u.shift_id === s.id).length;
+              return (
+                <tr key={s.id}>
+                  <td><strong>{s.name}</strong></td>
+                  <td><code>{s.start_time} - {s.end_time}</code></td>
+                  <td className="muted">{s.description || 'General shift schedule'}</td>
+                  <td><span className="badge badge-active">{assignedCount} employees</span></td>
+                  <td>
+                    {shifts.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+                        aria-label={`Remove shift ${s.name}`}
+                        onClick={() => removeShift(s)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Add Shift Form */}
+        <form onSubmit={submitAddShift} className="form" noValidate>
+          <div className="two">
+            <div>
+              <label htmlFor="shift-name" className="field-label">New Shift Name</label>
+              <input
+                id="shift-name"
+                required
+                placeholder="e.g. Mid-Day Events Shift"
+                value={newShift.name}
+                onChange={(e) => setNewShift({ ...newShift, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="shift-desc" className="field-label">Purpose / Description</label>
+              <input
+                id="shift-desc"
+                placeholder="e.g. Pool party & sunset portraits"
+                value={newShift.description}
+                onChange={(e) => setNewShift({ ...newShift, description: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="two">
+            <div>
+              <label htmlFor="shift-start" className="field-label">Shift Start Time</label>
+              <input
+                id="shift-start"
+                type="time"
+                required
+                value={newShift.start_time}
+                onChange={(e) => setNewShift({ ...newShift, start_time: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="shift-end" className="field-label">Shift End Time</label>
+              <input
+                id="shift-end"
+                type="time"
+                required
+                value={newShift.end_time}
+                onChange={(e) => setNewShift({ ...newShift, end_time: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <Button disabled={addingShift}>
+            {addingShift ? 'Creating Shift…' : '+ Create Shift Template'}
+          </Button>
+        </form>
+      </Card>
+
       {/* 4. System Policy & Penalty Configuration */}
       <Card className="mb">
         <h3>Attendance Shift Windows & Financial Penalties</h3>
@@ -905,6 +1183,18 @@ export function OwnerDashboard() {
             <option value="owner">System Owner / Admin</option>
           </select>
 
+          <select
+            aria-label="New user assigned shift"
+            value={newUser.shift_id || (shifts[0] ? shifts[0].id : 1)}
+            onChange={(e) => setNewUser({ ...newUser, shift_id: Number(e.target.value) })}
+          >
+            {shifts.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.start_time} - {s.end_time})
+              </option>
+            ))}
+          </select>
+
           <Button disabled={addingUser}>
             {addingUser ? 'Adding…' : 'Add User Account'}
           </Button>
@@ -923,6 +1213,7 @@ export function OwnerDashboard() {
                 <th>ID</th>
                 <th>Name / Username</th>
                 <th>Role</th>
+                <th>Assigned Shift</th>
                 <th>Green Points</th>
                 <th>Red ({redVal} {currency})</th>
                 <th>Black ({blackVal} {currency})</th>
@@ -941,6 +1232,20 @@ export function OwnerDashboard() {
                     <td>#{u.id}</td>
                     <td><strong>{u.name || u.username}</strong></td>
                     <td className="capitalize">{u.role || 'employee'}</td>
+                    <td>
+                      <select
+                        aria-label={`Assign shift for ${u.name || u.username}`}
+                        value={u.shift_id || (shifts[0] ? shifts[0].id : 1)}
+                        onChange={(e) => handleAssignUserShift(u, Number(e.target.value))}
+                        style={{ padding: '4px 8px', fontSize: '0.82rem' }}
+                      >
+                        {shifts.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.start_time} - {s.end_time})
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="green-text font-semibold">{u.green || 0}</td>
                     <td className="red-text font-semibold">{u.red || 0}</td>
                     <td className="black-text font-semibold">{u.black || 0}</td>
@@ -977,7 +1282,7 @@ export function OwnerDashboard() {
               })}
               {!users.length && (
                 <tr>
-                  <td colSpan="9" className="muted text-center">
+                  <td colSpan="10" className="muted text-center">
                     No employees found.
                   </td>
                 </tr>
@@ -1193,6 +1498,57 @@ export function OwnerDashboard() {
           </tbody>
         </table>
       </Card>
+
+      {/* On-Site Kiosk Fullscreen Modal */}
+      {showKioskModal && (
+        <Modal onClose={() => setShowKioskModal(false)}>
+          <div style={{ textAlign: 'center', padding: '16px' }}>
+            <span className="badge badge-superadmin" style={{ fontSize: '0.85rem', marginBottom: '8px' }}>
+              📍 LIVE ON-SITE ATTENDANCE KIOSK
+            </span>
+            <h2 style={{ margin: '8px 0' }}>{company.company_name}</h2>
+            <p className="muted text-sm">
+              Front Desk & Studio Terminal
+            </p>
+
+            <div
+              style={{
+                margin: '24px auto',
+                padding: '24px',
+                background: 'var(--card-bg)',
+                border: '3px dashed var(--primary)',
+                borderRadius: '16px',
+                maxWidth: '320px',
+              }}
+            >
+              <span className="muted text-sm block">ACTIVE CHECK-IN CODE</span>
+              <div
+                style={{
+                  fontSize: '3.2rem',
+                  fontWeight: 900,
+                  letterSpacing: '6px',
+                  color: 'var(--primary)',
+                  margin: '12px 0',
+                }}
+              >
+                {kioskCode}
+              </div>
+              <small className="muted block">
+                Photographers: Enter this code in your mobile portal or scan on arrival.
+              </small>
+            </div>
+
+            <div className="btn-row" style={{ justifyContent: 'center' }}>
+              <Button type="button" variant="ghost" onClick={handleRotateKiosk} disabled={rotatingKiosk}>
+                Generate New Code
+              </Button>
+              <Button type="button" onClick={() => setShowKioskModal(false)}>
+                Exit Kiosk Mode
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

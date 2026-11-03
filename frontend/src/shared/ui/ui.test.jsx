@@ -2,7 +2,17 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Card, Button, ToggleSwitch, StatusBadge, Modal, StatCard } from './index.js';
+import {
+  Card,
+  Button,
+  ToggleSwitch,
+  StatusBadge,
+  Modal,
+  StatCard,
+  Confetti,
+  ToastProvider,
+  useToast,
+} from './index.js';
 
 describe('Shared UI Module Components', () => {
   beforeEach(() => {
@@ -126,6 +136,70 @@ describe('Shared UI Module Components', () => {
       expect(screen.getByText('Green Points')).toBeInTheDocument();
       expect(screen.getByText('27')).toBeInTheDocument();
       expect(screen.getByText('Early check-in rewards')).toBeInTheDocument();
+    });
+  });
+
+  describe('Confetti', () => {
+    it('does not render when active is false', () => {
+      const { container } = render(<Confetti active={false} />);
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('renders particles overlay when active is true', () => {
+      render(<Confetti active={true} />);
+      expect(screen.getByTestId('confetti-container')).toBeInTheDocument();
+    });
+  });
+
+  describe('ToastProvider & useToast', () => {
+    function TestConsumer() {
+      const { showToast, success, error, celebrate } = useToast();
+      return (
+        <div>
+          <button type="button" onClick={() => showToast('Standard info message', 'info')}>
+            Trigger Info
+          </button>
+          <button type="button" onClick={() => success('Success message')}>
+            Trigger Success
+          </button>
+          <button type="button" onClick={() => error('Error message')}>
+            Trigger Error
+          </button>
+          <button type="button" onClick={() => celebrate('Celebration message', { title: 'Party' })}>
+            Trigger Celebrate
+          </button>
+        </div>
+      );
+    }
+
+    it('displays toast notifications when triggered and closes on click', async () => {
+      render(
+        <ToastProvider>
+          <TestConsumer />
+        </ToastProvider>
+      );
+
+      await userEvent.click(screen.getByText('Trigger Success'));
+      expect(await screen.findByText('Success message')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveClass('toast-success');
+
+      // Click to close
+      const closeBtn = screen.getByRole('button', { name: /close notification/i });
+      await userEvent.click(closeBtn);
+      expect(screen.queryByText('Success message')).not.toBeInTheDocument();
+    });
+
+    it('renders celebration toast with custom title and triggers confetti', async () => {
+      render(
+        <ToastProvider>
+          <TestConsumer />
+        </ToastProvider>
+      );
+
+      await userEvent.click(screen.getByText('Trigger Celebrate'));
+      expect(await screen.findByText('Celebration message')).toBeInTheDocument();
+      expect(screen.getByText('Party')).toBeInTheDocument();
+      expect(screen.getByTestId('confetti-container')).toBeInTheDocument();
     });
   });
 });

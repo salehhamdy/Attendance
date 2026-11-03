@@ -717,6 +717,77 @@ th {
   margin-bottom: 14px;
 }
 
+.photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+.photo-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #cbd5e1;
+}
+
+.accuracy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.accuracy-good {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.accuracy-poor {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .accuracy-good {
+  background: #14532d;
+  color: #86efac;
+}
+
+[data-theme="dark"] .accuracy-poor {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* RTL Support for Arabic Localization */
+[dir="rtl"] {
+  font-family: 'Cairo', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+  text-align: right;
+}
+
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+
+[dir="rtl"] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+[dir="rtl"] .avatar {
+  margin-right: 0;
+  margin-left: 10px;
+}
+
 [data-theme="dark"] .otp-box {
   background: #1e293b;
   border-color: var(--primary);
@@ -1022,3 +1093,133 @@ th {
     overflow-x: auto;
   }
 }
+
+/* ==========================================================================
+   Toast Notification & Confetti Celebrations
+   ========================================================================== */
+.confetti-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation: confetti-fall ease-in forwards;
+}
+
+@keyframes confetti-fall {
+  0% {
+    top: -20px;
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    transform: translateY(0) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 440px;
+}
+
+[dir="rtl"] .toast-container {
+  right: auto;
+  left: 24px;
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  cursor: pointer;
+  animation: toast-slide-in 0.25s ease-out;
+  color: #ffffff;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.toast-success {
+  background: #16a34a;
+}
+
+.toast-celebrate {
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toast-error {
+  background: #dc2626;
+}
+
+.toast-info {
+  background: #2563eb;
+}
+
+.toast-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  margin-left: 8px;
+}
+
+[dir="rtl"] .toast-close {
+  margin-left: 0;
+  margin-right: 8px;
+}
+
+.toast-close:hover {
+  color: #ffffff;
+}
+

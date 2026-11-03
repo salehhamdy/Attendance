@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../shared/api/index.js';
 import { useAuth } from '../../auth/index.js';
-import { Card, Button, ToggleSwitch, StatCard } from '../../../shared/ui/index.js';
+import { Card, Button, ToggleSwitch, StatCard, useToast } from '../../../shared/ui/index.js';
 import { CheckInModal } from '../../attendance/index.js';
 import { RewardModal } from '../../rewards/index.js';
 
 export function EmployeeDashboard() {
   const { user } = useAuth();
+  const toast = useToast();
   const [s, setS] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
@@ -29,9 +30,13 @@ export function EmployeeDashboard() {
     try {
       await fn();
       await load();
-      if (successNotice) setMsg(successNotice);
+      if (successNotice) {
+        setMsg(successNotice);
+        toast.success(successNotice);
+      }
     } catch (e) {
       setErr(e.message);
+      toast.error(e.message);
     }
   }
 
@@ -265,6 +270,7 @@ export function EmployeeDashboard() {
                 <th>Activity / Event</th>
                 <th>Location / Zone</th>
                 <th>Point Impact</th>
+                <th>Security & Verification</th>
                 <th>Audit Note</th>
               </tr>
             </thead>
@@ -293,6 +299,33 @@ export function EmployeeDashboard() {
                     <td><strong>{h.action}</strong></td>
                     <td>{h.zone || 'Workplace'}</td>
                     <td>{deltaBadge}</td>
+                    <td>
+                      <div className="btn-row" style={{ alignItems: 'center', gap: '6px' }}>
+                        {h.photo && (
+                          <img
+                            src={h.photo}
+                            alt="Verification selfie"
+                            className="photo-thumb"
+                            style={{ width: '30px', height: '30px', cursor: 'pointer' }}
+                            title="Click to view verified selfie"
+                            onClick={() => window.open(h.photo, '_blank')}
+                          />
+                        )}
+                        {h.kiosk_verified && (
+                          <span className="badge badge-approved" style={{ fontSize: '0.72rem' }}>
+                            🏢 Kiosk
+                          </span>
+                        )}
+                        {h.accuracy && (
+                          <small className="muted" title="Satellite accuracy">
+                            ±{Math.round(h.accuracy)}m
+                          </small>
+                        )}
+                        {!h.photo && !h.kiosk_verified && !h.accuracy && (
+                          <span className="muted text-sm">Standard</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="muted">{h.note}</td>
                   </tr>
                 );
@@ -309,7 +342,18 @@ export function EmployeeDashboard() {
           onClose={() => setModal(null)}
           onDone={(res) => {
             setModal(null);
-            setMsg(res?.message || 'Check-in recorded successfully');
+            const notice = res?.message || 'Check-in recorded successfully';
+            setMsg(notice);
+            if (
+              res?.type === 'green' ||
+              res?.delta_green > 0 ||
+              String(notice).toLowerCase().includes('green point awarded') ||
+              String(notice).toLowerCase().includes('early')
+            ) {
+              toast.celebrate(notice, { title: '⭐ Early Shift Bonus Awarded!' });
+            } else {
+              toast.success(notice);
+            }
             load();
           }}
         />
@@ -320,7 +364,9 @@ export function EmployeeDashboard() {
           onClose={() => setModal(null)}
           onDone={() => {
             setModal(null);
-            setMsg(`Reward request submitted for owner approval (${s.reward_amount || 'Milestone Reward'})`);
+            const notice = `Reward request submitted for owner approval (${s.reward_amount || 'Milestone Reward'})`;
+            setMsg(notice);
+            toast.celebrate(notice, { title: '🎉 Milestone Reward Unlocked!' });
             load();
           }}
         />

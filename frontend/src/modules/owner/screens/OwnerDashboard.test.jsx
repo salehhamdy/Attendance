@@ -312,11 +312,13 @@ describe('Owner Module - OwnerDashboard Screen', () => {
     const addBtn = screen.getByRole('button', { name: /Add User Account/i });
     await userEvent.click(addBtn);
 
-    expect(api.addUser).toHaveBeenCalledWith({
-      name: 'Tarek Hamdy',
-      username: 'tarek',
-      role: 'employee',
-    });
+    expect(api.addUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Tarek Hamdy',
+        username: 'tarek',
+        role: 'employee',
+      })
+    );
     expect(await screen.findByRole('status')).toHaveTextContent(/Photographer "Tarek Hamdy" added successfully/i);
   });
 
@@ -434,5 +436,82 @@ describe('Owner Module - OwnerDashboard Screen', () => {
     render(<OwnerDashboard />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Owner API failure');
+  });
+
+  it('allows owner to rotate on-site kiosk access code and launches kiosk display', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.rotateKioskCode = vi.fn().mockResolvedValueOnce({
+      success: true,
+      kiosk_code: 'K99999',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    expect(screen.getByText('SHARM1')).toBeInTheDocument();
+
+    const refreshBtn = screen.getByRole('button', { name: /Refresh Kiosk Code/i });
+    await userEvent.click(refreshBtn);
+
+    expect(api.rotateKioskCode).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('K99999')).toBeInTheDocument();
+
+    const launchBtn = screen.getByRole('button', { name: /Launch Kiosk Display/i });
+    await userEvent.click(launchBtn);
+
+    expect(screen.getByText(/LIVE ON-SITE ATTENDANCE KIOSK/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Exit Kiosk Mode/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Exit Kiosk Mode/i }));
+  });
+
+  it('allows owner to create a new shift template', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.createShift = vi.fn().mockResolvedValueOnce({
+      id: 99,
+      name: 'Sunset Gala Shift',
+      start_time: '16:00',
+      end_time: '00:00',
+      description: 'Evening portraits',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    expect(screen.getByText('Shift Templates & Multi-Shift Scheduling')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/New Shift Name/i), 'Sunset Gala Shift');
+    await userEvent.type(screen.getByLabelText(/Purpose \/ Description/i), 'Evening portraits');
+
+    const createBtn = screen.getByRole('button', { name: /\+ Create Shift Template/i });
+    await userEvent.click(createBtn);
+
+    expect(api.createShift).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Sunset Gala Shift',
+        description: 'Evening portraits',
+      })
+    );
+  });
+
+  it('allows owner to assign a staff member to a shift schedule', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.getCompanySettings.mockResolvedValue(mockCompanyData);
+    api.assignUserShift = vi.fn().mockResolvedValueOnce({
+      success: true,
+      message: 'Assigned rico to Evening Shift.',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const shiftSelect = screen.getByLabelText('Assign shift for rico');
+    await userEvent.selectOptions(shiftSelect, '2');
+
+    expect(api.assignUserShift).toHaveBeenCalledWith(1, 2);
   });
 });

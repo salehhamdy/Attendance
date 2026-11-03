@@ -53,7 +53,7 @@ export async function request(method, path, body) {
 export const realApi = {
   login: (username, password) => request('POST', '/auth/login', { username, password }),
   summary: () => request('GET', '/me/summary'),
-  checkin: (lat, lng) => request('POST', '/checkin', { lat, lng }),
+  checkin: (lat, lng, extras = {}) => request('POST', '/checkin', { lat, lng, ...extras }),
   cancelRed: () => request('POST', '/points/cancel-red'),
   cancelBlack: () => request('POST', '/points/cancel-black'),
   requestLeave: (b) => request('POST', '/leave', b),
@@ -85,4 +85,13 @@ export const realApi = {
   removeOwner: (id) => request('DELETE', `/superadmin/owners/${id}`),
   requestSuperadminOtp: (email) => request('POST', '/auth/superadmin/otp/request', { email }),
   verifySuperadminOtp: (email, otp) => request('POST', '/auth/superadmin/otp/verify', { email, otp }),
+  getKioskCode: () => request('GET', '/owner/kiosk/code'),
+  rotateKioskCode: () => request('POST', '/owner/kiosk/rotate'),
+  getAuditLogs: () => request('GET', '/superadmin/audit-logs'),
+  exportAuditLogsCsv: () => request('GET', '/superadmin/audit-logs/export'),
+  getShifts: () => request('GET', '/owner/shifts'),
+  createShift: (s) => request('POST', '/owner/shifts', s),
+  deleteShift: (id) => request('DELETE', `/owner/shifts/${id}`),
+  assignUserShift: (userId, shiftId) =>
+    request('POST', `/owner/users/${userId}/shift`, { shift_id: shiftId }),
 };

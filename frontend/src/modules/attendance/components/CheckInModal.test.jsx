@@ -83,4 +83,51 @@ describe('Attendance Module - CheckInModal Component', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Outside approved workplace');
   });
+
+  it('attaches selfie verification photo to check-in payload', async () => {
+    api.checkin.mockResolvedValueOnce({ success: true });
+    const onDone = vi.fn();
+    render(<CheckInModal onClose={vi.fn()} onDone={onDone} />);
+
+    // Take photo
+    const takePhotoBtn = await screen.findByRole('button', { name: /Take Selfie Photo/i });
+    await userEvent.click(takePhotoBtn);
+
+    expect(screen.getByText(/Selfie Verification Attached/i)).toBeInTheDocument();
+
+    // Simulate GPS and confirm
+    await userEvent.click(screen.getByRole('button', { name: /Simulate GPS/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Confirm Location & Check In/i }));
+
+    expect(api.checkin).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({
+        photo: expect.stringContaining('data:image/'),
+      })
+    );
+  });
+
+  it('allows entering on-site kiosk code for location verification', async () => {
+    api.checkin.mockResolvedValueOnce({ success: true });
+    render(<CheckInModal onClose={vi.fn()} onDone={vi.fn()} />);
+
+    // Reveal kiosk code input
+    const kioskBtn = await screen.findByRole('button', { name: /Enter Kiosk PIN \/ Code/i });
+    await userEvent.click(kioskBtn);
+
+    const kioskInput = screen.getByPlaceholderText(/Enter 6-char On-Site Kiosk Code/i);
+    await userEvent.type(kioskInput, 'SHARM1');
+
+    await userEvent.click(screen.getByRole('button', { name: /Simulate GPS/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Confirm Location & Check In/i }));
+
+    expect(api.checkin).toHaveBeenCalledWith(
+      expect.any(Number),
+      expect.any(Number),
+      expect.objectContaining({
+        kiosk_code: 'SHARM1',
+      })
+    );
+  });
 });

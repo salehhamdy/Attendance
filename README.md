@@ -50,7 +50,7 @@ frontend/src/
 ```
 
 ## System Status
-- **Frontend (Modular Monolith):** Fully implemented and verified with **94 unit and integration tests across 12 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
+- **Frontend (Modular Monolith):** Fully implemented and verified with **107 unit and integration tests across 12 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
 - **Backend (FastAPI + PostgreSQL):** Planned. The frontend includes a comprehensive in-memory mock engine (`VITE_MOCK=1`) for standalone execution, demonstration, and automated testing.
 
 ## Quick Start (Frontend)
@@ -77,69 +77,78 @@ npm run build
 
 ## Domain Rules & Core Capabilities
 
-### 1. Platform Superadmin & Immutable Authority
+### 1. Platform Superadmin & Enterprise Governance
 - **Immutable Root Superadmin:** The platform superadmin account is permanent and protected. No user, administrator, or owner can remove, suspend, or alter the superadmin account.
+- **Exclusive Email & 2-Step OTP Verification:** Access is strictly reserved for **`salehhamdy599@gmail.com`** (Saleh Hamdy) secured with a 6-digit Email OTP verification code.
 - **Owner Provisioning & Workspace Assignment:** Superadmins create owner accounts and bind them to distinct business workspaces (e.g., Acme Resorts Sharm, Beta Studios).
 - **Cascading Suspension:** Suspending an owner **simultaneously suspends the entire team under that owner**, instantly restricting login and check-in access across all workspaces until reinstated.
 - **Cascading Removal:** Permanently removing an owner cascades and **permanently purges all team members, attendance records, leaves, and rewards under that owner**.
-- **Superadmin Console (`/superadmin`):** Overview stats (Total Owners, Active, Suspended, Total Team Members), live search filter, and quick action controls (Suspend, Reinstate, Remove).
+- **Cross-Workspace Operational Analytics:** Global platform reliability score, operational workspace ratios, and governed team member counters.
+- **Superadmin Workspace Support Mode:** Support inspection modal allowing root admins to inspect organization health and team sizes without modifying credentials.
+- **Platform Security & Governance Audit Trail:** Immutable chronological event log tracking administrative actions, OTP dispatches, and geofence updates, with one-click CSV export.
 
-### 2. Universal Business Profile & Local Currency
+### 2. Security & Anti-Fraud Suite
+- **Webcam / Selfie Verification:** Live camera stream during check-in with snapshot preview, simulated fallback, and permanent attachment to attendance ledger audit records.
+- **GPS Accuracy Meter & Anti-Spoofing Filter:** Real-time satellite accuracy indicator (e.g. `±15m`), automatically rejecting simulated or degraded locations (> 150m) unless on-site kiosk verification is provided.
+- **On-Site Attendance Kiosk Mode:** Live rotating PIN / token displayed on reception or studio tablets for staff physical presence proof without high-accuracy GPS.
+
+### 3. Localization & Regional Fit
+- **Bilingual i18n:** Seamless switching between English (`en`) and Egyptian Arabic (`ar`).
+- **Right-to-Left (RTL) Layout:** Automatic layout flipping (`dir="rtl"`), Cairo/Segoe UI typography, and mirrored positioning for Arabic speakers.
+- **Progressive Web App (PWA) Ready:** Web app manifest (`manifest.json`) and service worker (`sw.js`) enabling mobile home-screen installation and offline asset caching.
+
+### 4. Operational Enhancements for Owners
+- **Multi-Shift Scheduling:** Manage shift templates (Morning Shift `07:00-15:00`, Evening Shift `15:00-23:00`, Night Shift `23:00-07:00`) and assign team members directly in the staff table.
+- **In-App Toast Notifications & Confetti Celebrations:** Delightful toast feedback on penalty waiving, password resets, and shift updates, accompanied by animated confetti particle bursts on early check-ins and milestone reward achievements.
+
+### 5. Universal Business Profile & Local Currency
 - **Organization Name:** Dynamic branding displayed across the portal.
 - **Operating Currency:** Configurable currency code (e.g. `EGP`, `USD`, `SAR`, `AED`, `EUR`, `GBP`). Deductions, balances, and penalties automatically compute in the chosen currency.
 - **Reward Milestone Threshold:** Configurable milestone target (default: 30 Green Points).
 - **Reward Payout Description:** Customizable valuation (e.g., `40 USD / 2,200 EGP` or `$100 Performance Bonus`).
 
-### 3. Multiple Resort Geofencing & Presets
+### 6. Multiple Resort Geofencing & Presets
 - **Multi-Resort Support:** Owners can define unlimited resort locations anywhere with GPS latitude, longitude, and custom radius (meters).
 - **Quick-Fill Resort Presets:** One-click presets for premier resorts including Rixos Radamis Sharm, Rixos Premium Seagate, Pickalbatros Aqua Park, Four Seasons Resort, and Steigenberger Alcazar.
 - **Device GPS Integration:** "Use Current Device GPS" button to autofill accurate coordinates on-site.
 - **Intelligent Spatial Validation:** Calculates real-time Haversine distance to all configured branches and evaluates against the closest geofence.
 - **Worldwide Remote Check-in Toggle:** Allows staff to check in from anywhere when enabled, or enforces strict physical boundaries when disabled.
 
-### 4. Points History Ledger & Monthly Attendance Calendar
-- **Points History Ledger:** Chronological audit trail of all point movements with timestamps, events (Early check-in, On-time, Late penalty, Red/Black cancellations, Owner adjustments), workplace zones, and color delta badges (`+1 Green`, `+1 Red`, `-1 Green / -1 Red`, etc.).
+### 7. Points History Ledger & Monthly Attendance Calendar
+- **Points History Ledger:** Chronological audit trail of all point movements with timestamps, events (Early check-in, On-time, Late penalty, Red/Black cancellations, Owner adjustments), workplace zones, selfie thumbnails, satellite accuracy meters, and color delta badges (`+1 Green`, `+1 Red`, `-1 Green / -1 Red`, etc.).
 - **Monthly Attendance Calendar:** Visual calendar grid showing daily attendance status (Early, On-Time, Late, Absent, Leave, Day Off), arrival times, and monthly summary counters.
 
-### 5. Payroll & Compensation Export (CSV / Excel)
+### 8. Payroll & Compensation Export (CSV / Excel)
 - **Payroll Table:** Owner panel summary of employee green points, penalty deductions in active currency, approved cash rewards, and net payroll adjustment.
 - **One-Click CSV Export:** Generates formatted `payroll-report-<company>.csv` files ready for Microsoft Excel, Google Sheets, and accounting payroll processing.
 
-### 6. Dark Mode for Dim Photography Studios
+### 9. Dark Mode for Dim Photography Studios
 - High-contrast, slate-neutral dark theme engineered specifically for photographers editing photos in dimly lit environments.
 - Instant toggle in the top bar with persistence in `localStorage` and full CSS custom property integration (`[data-theme="dark"]`).
 
-### 7. Direct Password Reset
+### 10. Direct Password Reset
 - Owners can reset photographer/employee passwords directly from the user management roster with a single click.
 - Instant modal dialog with customizable temporary passwords.
 
-### 8. Configurable Check-In Shift Windows
-- **Early Window (Default: 07:00 – 08:00 AM):** Early arrival bonus (+1 Green Point).
-- **On-Time Window (Default: 08:00 – 10:00 AM):** On-time attendance (Normal, zero points).
-- **Late Window (Default: 10:00 – 12:00 PM):** Late arrival (+1 Red Penalty = Configured penalty amount).
-- **Absence Cutoff (Default: Post 12:00 PM):** Severe delay (+1 Black Penalty = Configured penalty amount).
-
-### 9. Point Trading Mechanics
+### 11. Point Trading Mechanics & Leave Exemptions
 - **Cancel Red Penalty:** 1 Green Point cancels 1 Red Penalty (saves active Red Penalty amount).
 - **Cancel Black Penalty:** 5 Green Points cancel 1 Black Penalty (saves active Black Penalty amount).
 - **Milestone Reward Claim:** Reaching the configured Green Point milestone unlocks reward payout requests via InstaPay, Vodafone Cash, Bank Transfer, or Cash.
-
-### 10. Leave Exemption
-- Employees can submit leave requests with date range validation and audit reasons.
-- Once approved by the owner, absence penalties (Black Points) are waived for the duration.
+- **Leave Exemption:** Employees submit leave requests; once approved, absence penalties (Black Points) are waived for the duration.
 
 ## Test Suite
-- Total Tests: **94 passing** across 12 modular test suites.
+- Total Tests: **107 passing** across 12 modular test suites.
 - Coverage:
-  - `src/App.test.jsx`: Complete integration and hierarchical RBAC suite covering unauthenticated redirection, employee journey (dashboard, calendar, leave management, route guard), owner journey (profile, branches, payroll, route guard), superadmin journey (Email OTP login, immutability, owner governance, dark mode, signout), and suspended owner access blocking (5 tests).
+  - `src/App.test.jsx`: Complete integration and hierarchical RBAC suite covering unauthenticated redirection, employee journey, owner journey, superadmin journey (Email OTP login, immutability, owner governance, dark mode, signout), and suspended owner access blocking (5 tests).
   - `src/modules/auth/auth.test.jsx`: Authentication provider, session lifecycle, token parsing (3 tests).
   - `src/modules/auth/screens/LoginScreen.test.jsx`: Login credentials validation, superadmin email OTP request, verification, and unauthorized email rejection (4 tests).
-  - `src/shared/ui/ui.test.jsx`: Reusable UI components (Card, Button, ToggleSwitch, StatusBadge, Modal, StatCard) (10 tests).
-  - `src/shared/layout/Layout.test.jsx`: Role-aware sidebar, topbar user status, dark mode toggle, superadmin navigation, and logout (5 tests).
-  - `src/modules/attendance/components/CheckInModal.test.jsx`: Spatial geofence check-in, distance calculation, multi-branch boundary detection, remote mode, and GPS simulation (4 tests).
+  - `src/shared/ui/ui.test.jsx`: Reusable UI components (Card, Button, ToggleSwitch, StatusBadge, Modal, StatCard, Confetti, ToastProvider, useToast) (14 tests).
+  - `src/shared/layout/Layout.test.jsx`: Role-aware sidebar, topbar user status, dark mode toggle, superadmin navigation, i18n language toggle, and logout (6 tests).
+  - `src/modules/attendance/components/CheckInModal.test.jsx`: Spatial geofence check-in, distance calculation, multi-branch boundary detection, remote mode, selfie photo snapshot, GPS accuracy meter, and on-site kiosk code verification (6 tests).
   - `src/modules/rewards/components/RewardModal.test.jsx`: Reward payout selector, validation, and submission (4 tests).
-  - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: Real-time stats, dynamic currency penalty calculations, progress bar, point exchange toggles, monthly attendance calendar, and points history ledger (6 tests).
+  - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: Real-time stats, dynamic currency penalty calculations, progress bar, point exchange toggles, monthly attendance calendar, and points history ledger with verification metadata (6 tests).
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: Date range validation, request submission, and history table (4 tests).
-  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Stats cards, immutable superadmin protection for Saleh Hamdy (`salehhamdy599@gmail.com`), owner searching, provisioning, cascading suspension, reinstatement, cascading deletion, form validation, and error alert handling (10 tests).
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Company profile & currency configuration, resort geofence presets, multi-branch addition/removal, direct password reset, payroll CSV export, dynamic penalty config, arrival time window adjustments, user addition/removal, form validation, and approval queues (16 tests).
-  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, multi-branch geofencing, remote check-in, password reset, payroll CSV export, points history, calendar retrieval, superadmin immutability, cascading suspension, cascading removal, and exclusive email OTP authentication for `salehhamdy599@gmail.com` (23 tests).
+  - `src/modules/leave/screens/LeaveScreen.test.jsx`: Employee leave request submission and history (6 tests).
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Cross-workspace analytics, immutable superadmin protection for Saleh Hamdy (`salehhamdy599@gmail.com`), owner searching, provisioning, cascading suspension, reinstatement, cascading deletion, security audit trail with CSV export, and support mode inspection (13 tests).
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Company profile & currency configuration, resort geofence presets, multi-branch addition/removal, direct password reset, payroll CSV export, kiosk code rotation & display, multi-shift scheduling, staff shift assignment, dynamic penalty config, arrival time window adjustments, user addition/removal, form validation, and approval queues (19 tests).
+  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, multi-branch geofencing, remote check-in, password reset, payroll CSV export, points history, calendar retrieval, superadmin immutability, cascading suspension, cascading removal, shift scheduling, audit trail CSV export, and exclusive email OTP authentication for `salehhamdy599@gmail.com` (19 tests).

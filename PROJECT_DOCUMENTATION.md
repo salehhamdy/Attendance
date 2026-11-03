@@ -60,28 +60,33 @@ frontend/src/
   - **Owner Provisioning:** Create business owner accounts and assign them to dedicated workspace organizations.
   - **Cascading Suspension:** Suspending an owner automatically suspends their entire team across all workspaces. All affected accounts lose login, check-in, and leave/reward permissions until the owner is reinstated.
   - **Cascading Removal:** Deleting an owner permanently purges the owner and all associated employees, attendance records, leaves, and rewards.
-  - **Superadmin Console (`/superadmin`):** Surfaces owner roster with dynamic team counts, status indicators, and live management controls.
+  - **Cross-Workspace Operational Analytics:** Real-time visibility into overall platform reliability, active workspaces, and governed employee accounts.
+  - **Workspace Support Inspection Mode:** Quick preview modal for superadmins to inspect tenant health and managed team sizes.
+  - **Platform Security & Governance Audit Trail:** Immutable chronological ledger of administrative operations, OTP verifications, and geofence updates with one-click CSV export.
 - **Exports:** `SuperadminDashboard`.
 
 ### `modules/auth`
-- **Responsibility:** Manages credentials authentication, JWT token storage, decoding sub/role claims, and session termination.
+- **Responsibility:** Manages credentials authentication, JWT token storage, decoding sub/role claims, session termination, and superadmin email OTP dispatch and verification flows.
 - **Exports:** `AuthProvider`, `useAuth`, `LoginScreen`.
 
 ### `modules/attendance`
 - **Responsibility:** Multi-branch spatial geofence validation, distance calculations, GPS error handling, device geolocation capture, and interactive Leaflet map rendering with multi-branch overlays. Also handles remote mode bypass when enabled.
+  - **Live Webcam / Selfie Verification:** Webcam capture with snapshot fallback attached to attendance records.
+  - **Anti-Spoofing Filter & Satellite Accuracy Meter:** Rejection of degraded GPS accuracy (> 150m) unless verified via on-site kiosk.
+  - **On-Site Rotating Kiosk Mode:** Indoor physical presence token validation.
 - **Exports:** `CheckInModal`, `WORK_ZONE`, `DEFAULT_ZONE`, `findNearestBranch`, `getDistanceMeters`.
 
 ### `modules/ledger`
 - **Responsibility:**
   - Tracks Green Points (early rewards), Red Penalties (late arrival deduction), and Black Penalties (absence deduction).
   - Recalculates deductions dynamically based on owner penalty values and operating currency.
-  - **Points History Ledger:** Chronological audit trail of point movements, penalties, cancellations, and adjustments.
+  - **Points History Ledger:** Chronological audit trail of point movements, penalties, cancellations, and adjustments, complete with verification selfie thumbnails, GPS meters, and kiosk badges.
   - **Monthly Attendance Calendar:** Visual daily grid displaying status badges (Early, On-Time, Late, Absent, Leave, Day Off), arrival timestamps, and monthly attendance statistics.
   - Encapsulates 1-to-1 red cancellation and 5-to-1 black cancellation logic.
 - **Exports:** `EmployeeDashboard`.
 
 ### `modules/rewards`
-- **Responsibility:** Handles milestone requests based on configurable reward thresholds, payout method selection (InstaPay, Vodafone Cash, Bank Transfer, Cash), and customizable financial valuation.
+- **Responsibility:** Handles milestone requests based on configurable reward thresholds, payout method selection (InstaPay, Vodafone Cash, Bank Transfer, Cash), and customizable financial valuation. Triggers celebratory confetti bursts on unlocks.
 - **Exports:** `RewardModal`.
 
 ### `modules/leave`
@@ -93,6 +98,9 @@ frontend/src/
   - **Multiple Resort Geofencing & Presets:** Quick-fill presets for premier resorts (Rixos Radamis, Rixos Seagate, Pickalbatros, Four Seasons, Steigenberger) and custom GPS branch management.
   - **Payroll & Compensation Export:** Employee compensation overview and one-click formatted CSV download for Excel and accounting.
   - **Direct Password Reset:** Instant password updates for photographers and staff directly from the user roster.
+  - **On-Site Kiosk Display Mode:** Live rotating token display for reception tablets.
+  - **Multi-Shift Scheduling:** Creation of shift templates (Morning, Evening, Night) and employee shift assignment in roster.
+  - **In-App Toast Feedback:** Real-time notifications on owner configuration changes and administrative actions.
   - **Universal Business Profile:** Configurable company name, currency code (`EGP`, `USD`, `SAR`, `AED`, `EUR`, `GBP`), reward threshold, and reward valuation.
   - **Remote Attendance Policy:** Toggle worldwide check-in mode.
   - **Penalty Rate Control:** Dynamically configure Red Penalty value and Black Penalty value in active currency.
@@ -106,11 +114,21 @@ frontend/src/
 ## 3. Extended API Contract (Base: `/api`)
 | Method | Endpoint | Description | Request Body / Params | Role |
 | :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/auth/superadmin/otp/request` | Request 6-digit OTP code to salehhamdy599@gmail.com | `{ email }` | Public |
+| `POST` | `/auth/superadmin/otp/verify` | Verify OTP code and authenticate superadmin session | `{ email, otp }` | Public |
 | `GET` | `/superadmin/owners` | List all owners, workspaces, team sizes, and platform stats | — | Superadmin |
 | `POST` | `/superadmin/owners` | Provision a new business owner and assign to a workspace | `{ name, username, email, workspace, password }` | Superadmin |
 | `POST` | `/superadmin/owners/:id/suspend` | Suspend owner and simultaneously suspend all their team members | — | Superadmin |
 | `POST` | `/superadmin/owners/:id/reinstate` | Reinstate owner and restore full team access | — | Superadmin |
 | `DELETE` | `/superadmin/owners/:id` | Permanently remove owner and all associated team members | — | Superadmin |
+| `GET` | `/superadmin/audit-logs` | Retrieve platform security & governance audit trail | — | Superadmin |
+| `GET` | `/superadmin/audit-logs/export` | Export security audit trail in CSV format | — | Superadmin |
+| `GET` | `/owner/kiosk/code` | Retrieve current on-site physical kiosk token | — | Owner / Superadmin |
+| `POST` | `/owner/kiosk/rotate` | Rotate and issue a fresh on-site kiosk access code | — | Owner / Superadmin |
+| `GET` | `/owner/shifts` | Retrieve configured shift templates | — | Owner / Superadmin |
+| `POST` | `/owner/shifts` | Create new shift template schedule | `{ name, start_time, end_time, description }` | Owner / Superadmin |
+| `DELETE` | `/owner/shifts/:id` | Delete shift template | — | Owner / Superadmin |
+| `POST` | `/owner/users/:id/shift` | Assign employee to a shift schedule | `{ shift_id }` | Owner / Superadmin |
 | `GET` | `/owner/company` | Retrieve company profile, currency, branches, and remote mode | — | Owner / Superadmin |
 | `POST` | `/owner/company` | Update business profile, currency, reward settings, and remote mode | `{ company_name, currency, reward_threshold, reward_amount, allow_remote }` | Owner / Superadmin |
 | `POST` | `/owner/branches` | Add a new workplace branch anywhere in the world | `{ name, lat, lng, radius }` | Owner / Superadmin |
@@ -121,7 +139,7 @@ frontend/src/
 | `GET` | `/me/calendar` | Retrieve employee monthly attendance calendar | `?year=YYYY&month=MM` | Employee / Owner / Superadmin |
 | `GET` | `/owner/settings` | Retrieve active penalty amounts and arrival time windows | — | Owner / Superadmin |
 | `POST` | `/owner/settings` | Update penalty amounts and arrival shift windows | `{ red_penalty_egp, black_penalty_egp, early_window_start, early_window_end, normal_window_end, late_window_end }` | Owner / Superadmin |
-| `POST` | `/owner/users` | Add new user account | `{ name, username, role }` | Owner / Superadmin |
+| `POST` | `/owner/users` | Add new user account with shift assignment | `{ name, username, role, shift_id }` | Owner / Superadmin |
 | `DELETE` | `/owner/users/:id` | Remove user account from system | — | Owner / Superadmin |
 | `GET` | `/owner/users` | List all staff, points, and pending queues | — | Owner / Superadmin |
 | `POST` | `/owner/adjust` | Manually adjust an employee's point balance | `{ user_id, color, delta, reason }` | Owner / Superadmin |
@@ -132,19 +150,20 @@ frontend/src/
 ---
 
 ## 4. Quality Assurance & Verification
-- **Test Suite Execution:** 94 tests across 12 modular test suites in Vitest:
+- **Test Suite Execution:** 107 tests across 12 modular test suites in Vitest:
   - `src/App.test.jsx`: 5 tests (complete end-to-end integration, hierarchical RBAC routing for all 3 roles, Email OTP superadmin login, dark mode, and cascading suspension blocking)
   - `src/modules/auth/auth.test.jsx`: 3 tests
   - `src/modules/auth/screens/LoginScreen.test.jsx`: 4 tests (staff/owner login, superadmin Email OTP request, OTP verification, and unauthorized email denial)
-  - `src/shared/ui/ui.test.jsx`: 10 tests
-  - `src/shared/layout/Layout.test.jsx`: 5 tests (includes dark mode and superadmin navigation verification)
-  - `src/modules/attendance/components/CheckInModal.test.jsx`: 4 tests
+  - `src/shared/ui/ui.test.jsx`: 14 tests (Card, Button, ToggleSwitch, StatusBadge, Modal, StatCard, Confetti, ToastProvider, useToast)
+  - `src/shared/layout/Layout.test.jsx`: 6 tests (includes dark mode, i18n English/Arabic toggle, RTL layout, and superadmin navigation verification)
+  - `src/modules/attendance/components/CheckInModal.test.jsx`: 6 tests (spatial geofence check-in, distance calculation, multi-branch boundary detection, remote mode, selfie photo snapshot, GPS accuracy meter, and kiosk code verification)
   - `src/modules/rewards/components/RewardModal.test.jsx`: 4 tests
-  - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 6 tests (includes monthly attendance calendar & points history ledger)
+  - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 6 tests (monthly attendance calendar, verification metadata in points history ledger, and celebration alerts)
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: 4 tests
-  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: 10 tests (includes immutable superadmin protection for Saleh Hamdy / salehhamdy599@gmail.com, search, provisioning, cascading suspension, reinstatement, deletion, form validations, and error states)
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 16 tests (includes resort presets, payroll export, password reset, company profile, multi-branch CRUD, penalty settings, arrival windows, user addition/removal, form validations, error handling)
-  - `src/shared/api/mock.test.js`: 23 tests (includes superadmin immutability, cascading suspension, cascading removal, password reset, payroll CSV export, points history, calendar retrieval, multi-branch geofencing, remote check-in, dynamic penalties, user CRUD, exclusive email OTP authentication for salehhamdy599@gmail.com)
-  - **Result: 94 passed / 94 tests (100% success rate)**
+  - `src/modules/leave/screens/LeaveScreen.test.jsx`: 6 tests
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: 13 tests (cross-workspace analytics, immutable superadmin protection for Saleh Hamdy / salehhamdy599@gmail.com, search, provisioning, cascading suspension, reinstatement, deletion, audit trail with CSV export, and support mode)
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 19 tests (resort presets, payroll export, password reset, kiosk mode, multi-shift scheduling, company profile, multi-branch CRUD, penalty settings, arrival windows, user addition/removal, form validations, error handling)
+  - `src/shared/api/mock.test.js`: 19 tests (superadmin immutability, cascading suspension, cascading removal, password reset, payroll CSV export, points history, calendar retrieval, multi-branch geofencing, remote check-in, dynamic penalties, user CRUD, audit logs CSV, shift scheduling, exclusive email OTP authentication for salehhamdy599@gmail.com)
+  - **Result: 107 passed / 107 tests (100% success rate)**
 - **Static Analysis:** ESLint executed on `src/` with zero warnings and zero errors.
 - **Production Build:** Vite production bundle completed cleanly in `dist/`.

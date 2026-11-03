@@ -15,6 +15,7 @@ vi.mock('../../modules/auth/index.js', () => ({
 }));
 
 import { Layout } from './index.js';
+import { I18nProvider } from '../i18n/index.js';
 
 describe('Layout Component', () => {
   beforeEach(() => {
@@ -23,6 +24,8 @@ describe('Layout Component', () => {
     mockUser = { name: 'rico', role: 'employee' };
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+    document.documentElement.dir = 'ltr';
+    document.documentElement.lang = 'en';
   });
 
   it('renders employee navigation links and user badge', () => {
@@ -105,5 +108,35 @@ describe('Layout Component', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(localStorage.getItem('theme')).toBe('dark');
     expect(screen.getByRole('button', { name: /Switch to light mode/i })).toHaveTextContent(/☀️ Light/i);
+  });
+
+  it('toggles language between English and Arabic with RTL direction', async () => {
+    render(
+      <MemoryRouter>
+        <I18nProvider>
+          <Layout>
+            <div>Content</div>
+          </Layout>
+        </I18nProvider>
+      </MemoryRouter>
+    );
+
+    const langBtn = screen.getByRole('button', {
+      name: /Toggle language between English and Arabic/i,
+    });
+    expect(langBtn).toHaveTextContent(/العربية 🌐/i);
+
+    await userEvent.click(langBtn);
+
+    expect(document.documentElement.dir).toBe('rtl');
+    expect(document.documentElement.lang).toBe('ar');
+    expect(localStorage.getItem('attendance_lang')).toBe('ar');
+    expect(langBtn).toHaveTextContent(/English 🌐/i);
+
+    // Toggle back
+    await userEvent.click(langBtn);
+    expect(document.documentElement.dir).toBe('ltr');
+    expect(document.documentElement.lang).toBe('en');
+    expect(localStorage.getItem('attendance_lang')).toBe('en');
   });
 });

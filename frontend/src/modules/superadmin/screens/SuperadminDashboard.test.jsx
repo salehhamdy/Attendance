@@ -10,6 +10,17 @@ vi.mock('../../../shared/api/index.js', () => ({
     suspendOwner: vi.fn(),
     reinstateOwner: vi.fn(),
     removeOwner: vi.fn(),
+    getAuditLogs: vi.fn().mockResolvedValue([
+      {
+        id: 1,
+        timestamp: '2026-11-03 14:15',
+        actor: 'salehhamdy599@gmail.com',
+        action: 'SUPERADMIN_OTP_VERIFIED',
+        ip: 'Cairo, EG',
+        detail: 'Root superadmin session authenticated',
+      },
+    ]),
+    exportAuditLogsCsv: vi.fn().mockResolvedValue('ID,Timestamp,Actor\n1,2026-11-03,salehhamdy599@gmail.com'),
   },
 }));
 
@@ -73,7 +84,7 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
 
     // Immutable Superadmin row
     expect(screen.getByText(/You \(Saleh Hamdy\)/i)).toBeInTheDocument();
-    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
+    expect(screen.getAllByText('salehhamdy599@gmail.com').length).toBeGreaterThan(0);
     expect(screen.getByText('🛡️ Superadmin')).toBeInTheDocument();
     expect(screen.getByText('🔒 Protected (Immutable)')).toBeInTheDocument();
 
@@ -257,5 +268,44 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
     const removeBtn = screen.getByRole('button', { name: /Remove owner Layla Mansour/i });
     await userEvent.click(removeBtn);
     expect(await screen.findByRole('alert')).toHaveTextContent('Cannot remove: foreign key violation');
+  });
+
+  it('renders Cross-Workspace Operational Analytics and Security Audit Trail', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    render(<SuperadminDashboard />);
+
+    expect(await screen.findByText('Cross-Workspace Operational Analytics')).toBeInTheDocument();
+    expect(screen.getByText('98.2% Platform Reliability')).toBeInTheDocument();
+    expect(screen.getByText(/Platform Security & Governance Audit Trail/i)).toBeInTheDocument();
+    expect(screen.getByText('SUPERADMIN_OTP_VERIFIED')).toBeInTheDocument();
+    expect(screen.getByText('Root superadmin session authenticated')).toBeInTheDocument();
+  });
+
+  it('allows exporting audit trail to CSV', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    render(<SuperadminDashboard />);
+
+    const exportBtn = await screen.findByRole('button', { name: /Export Audit Trail \(CSV\)/i });
+    await userEvent.click(exportBtn);
+
+    expect(api.exportAuditLogsCsv).toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent(/Audit trail exported to CSV/i);
+  });
+
+  it('opens and closes Superadmin Workspace Support Mode inspection modal', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    render(<SuperadminDashboard />);
+
+    await screen.findByText('Layla Mansour');
+    const viewBtn = screen.getByRole('button', { name: /View workspace Acme Resorts Sharm/i });
+    await userEvent.click(viewBtn);
+
+    expect(screen.getByText(/SUPERADMIN WORKSPACE SUPPORT MODE/i)).toBeInTheDocument();
+    expect(screen.getByText(/Inspecting organization for owner/i)).toBeInTheDocument();
+
+    const closeBtn = screen.getByRole('button', { name: /Close Support Inspection/i });
+    await userEvent.click(closeBtn);
+
+    expect(screen.queryByText(/SUPERADMIN WORKSPACE SUPPORT MODE/i)).not.toBeInTheDocument();
   });
 });

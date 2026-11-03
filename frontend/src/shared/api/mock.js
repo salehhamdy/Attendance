@@ -93,10 +93,34 @@ export const initialOwners = [
   },
 ];
 
+export const initialShifts = [
+  {
+    id: 1,
+    name: 'Morning Shift',
+    start_time: '07:00',
+    end_time: '15:00',
+    description: 'Resort morning & breakfast photography',
+  },
+  {
+    id: 2,
+    name: 'Evening Shift',
+    start_time: '15:00',
+    end_time: '23:00',
+    description: 'Sunset sessions, beach parties & galas',
+  },
+  {
+    id: 3,
+    name: 'Night Shift',
+    start_time: '23:00',
+    end_time: '07:00',
+    description: 'Overnight photo editing & system maintenance',
+  },
+];
+
 const initialUsers = [
-  { id: 1, owner_id: 99, name: 'rico', username: 'rico', role: 'employee', status: 'active', green: 27, red: 1, black: 0 },
-  { id: 2, owner_id: 99, name: 'sara', username: 'sara', role: 'employee', status: 'active', green: 10, red: 0, black: 1 },
-  { id: 3, owner_id: 99, name: 'ahmed', username: 'ahmed', role: 'employee', status: 'active', green: 30, red: 0, black: 0 },
+  { id: 1, owner_id: 99, name: 'rico', username: 'rico', role: 'employee', status: 'active', green: 27, red: 1, black: 0, shift_id: 1, shift_name: 'Morning Shift' },
+  { id: 2, owner_id: 99, name: 'sara', username: 'sara', role: 'employee', status: 'active', green: 10, red: 0, black: 1, shift_id: 2, shift_name: 'Evening Shift' },
+  { id: 3, owner_id: 99, name: 'ahmed', username: 'ahmed', role: 'employee', status: 'active', green: 30, red: 0, black: 0, shift_id: 1, shift_name: 'Morning Shift' },
 ];
 
 const initialSettings = {
@@ -170,6 +194,14 @@ export const initialCalendar = [
 
 export const WORK_ZONE = initialCompany.branches[0];
 
+export const initialAuditLogs = [
+  { id: 1, timestamp: '2026-11-03 14:15', actor: 'salehhamdy599@gmail.com', action: 'SUPERADMIN_OTP_VERIFIED', ip: '197.38.12.94 (Cairo, EG)', detail: 'Root superadmin session authenticated via 6-digit Email OTP' },
+  { id: 2, timestamp: '2026-11-03 14:10', actor: 'salehhamdy599@gmail.com', action: 'SUPERADMIN_OTP_DISPATCHED', ip: '197.38.12.94 (Cairo, EG)', detail: 'Verification code dispatched to salehhamdy599@gmail.com' },
+  { id: 3, timestamp: '2026-11-03 13:50', actor: 'salehhamdy599@gmail.com', action: 'SECURITY_AUDIT_CHECK', ip: '197.38.12.94 (Cairo, EG)', detail: 'Enforced root account immutability & cascading protections' },
+  { id: 4, timestamp: '2026-11-03 12:30', actor: 'Layla Mansour', action: 'BRANCH_GEOFENCE_UPDATED', ip: '156.204.8.12 (Sharm El-Sheikh, EG)', detail: 'Configured 300m radius geofence for Rixos Radamis branch' },
+  { id: 5, timestamp: '2026-11-03 11:15', actor: 'salehhamdy599@gmail.com', action: 'OWNER_PROVISIONED', ip: '197.38.12.94 (Cairo, EG)', detail: 'Provisioned owner Layla Mansour assigned to Acme Resorts Sharm' },
+];
+
 const state = {
   green: 27,
   red: 1,
@@ -178,7 +210,9 @@ const state = {
   company: structuredClone(initialCompany),
   superadmin: structuredClone(initialSuperadmin),
   superadminOtp: '849201',
+  kiosk_code: 'SHARM1',
   owners: structuredClone(initialOwners),
+  audit_logs: structuredClone(initialAuditLogs),
   leave: [
     {
       id: 1,
@@ -212,6 +246,7 @@ const state = {
     },
   ],
   users: structuredClone(initialUsers),
+  shifts: structuredClone(initialShifts),
   history: structuredClone(initialHistory),
   calendar: structuredClone(initialCalendar),
 };
@@ -322,7 +357,7 @@ export const mockApi = {
 
   summary: () => delay(summary()),
 
-  checkin: (lat, lng) => {
+  checkin: (lat, lng, extras = {}) => {
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return fail('Invalid GPS coordinates provided');
     }
@@ -335,10 +370,24 @@ export const mockApi = {
       );
     }
 
+    // GPS Accuracy validation & Anti-spoofing filter
+    const acc = typeof extras.accuracy === 'number' ? extras.accuracy : 15;
+    const hasKiosk = Boolean(extras.kiosk_code && extras.kiosk_code.trim().toUpperCase() === state.kiosk_code);
+
+    if (extras.kiosk_code && !hasKiosk) {
+      return fail('Invalid On-Site Kiosk Code. Please check the code displayed at your workplace.');
+    }
+
+    if (acc > 150 && !state.company.allow_remote && !hasKiosk) {
+      return fail(
+        `GPS accuracy is too low (±${Math.round(acc)}m). Potential simulated location detected. Please move to clear skies or scan on-site Kiosk QR.`
+      );
+    }
+
     const { branch, distance, inZone } = findNearestBranch(lat, lng, state.company.branches);
     const allowRemote = Boolean(state.company.allow_remote);
 
-    if (!allowRemote && !inZone) {
+    if (!allowRemote && !inZone && !hasKiosk) {
       const branchName = branch ? branch.name : 'designated workplace';
       const maxRadius = branch ? branch.radius : 300;
       return fail(
@@ -406,6 +455,9 @@ export const mockApi = {
       delta_red: deltaR,
       delta_black: deltaB,
       note: pointMsg,
+      photo: extras.photo || null,
+      accuracy: acc,
+      kiosk_verified: Boolean(extras.kiosk_code),
     });
 
     // Update Calendar for today
@@ -433,6 +485,9 @@ export const mockApi = {
       branch: branch || null,
       allow_remote: allowRemote,
       is_remote: Boolean(allowRemote && !inZone),
+      photo: extras.photo || null,
+      accuracy: acc,
+      kiosk_verified: Boolean(extras.kiosk_code),
       summary: summary(),
     });
   },
@@ -531,6 +586,7 @@ export const mockApi = {
       users: structuredClone(state.users),
       settings: structuredClone(state.settings),
       company: structuredClone(state.company),
+      shifts: structuredClone(state.shifts),
       leave_requests: structuredClone(state.leave),
       reward_requests: structuredClone(state.rewards),
     }),
@@ -649,7 +705,7 @@ export const mockApi = {
   },
 
   // Owner User Management
-  addUser: ({ name, username, role = 'employee', owner_id = 99 }) => {
+  addUser: ({ name, username, role = 'employee', owner_id = 99, shift_id }) => {
     if (!name || !username) return fail('Name and username are required');
     const cleanUsername = username.trim().toLowerCase();
     if (cleanUsername === 'superadmin') {
@@ -659,6 +715,10 @@ export const mockApi = {
       (u) => u.username.toLowerCase() === cleanUsername
     );
     if (exists) return fail(`Username "${username}" already exists`);
+
+    const assignedShift =
+      (shift_id && state.shifts.find((s) => s.id === Number(shift_id))) ||
+      state.shifts[0];
 
     const newUser = {
       id: Date.now(),
@@ -670,6 +730,8 @@ export const mockApi = {
       green: 0,
       red: 0,
       black: 0,
+      shift_id: assignedShift ? assignedShift.id : 1,
+      shift_name: assignedShift ? assignedShift.name : 'Morning Shift',
     };
     state.users.push(newUser);
     return delay(newUser);
@@ -928,6 +990,73 @@ export const mockApi = {
     });
   },
 
+  getKioskCode: () => delay({ kiosk_code: state.kiosk_code || 'SHARM1' }),
+
+  rotateKioskCode: () => {
+    state.kiosk_code = 'K' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    return delay({ success: true, kiosk_code: state.kiosk_code });
+  },
+
+  getAuditLogs: () => delay(structuredClone(state.audit_logs)),
+
+  exportAuditLogsCsv: () => {
+    const header = 'ID,Timestamp,Actor,Action,IP_Location,Detail\n';
+    const rows = state.audit_logs
+      .map(
+        (l) =>
+          `${l.id},"${l.timestamp}","${l.actor}","${l.action}","${l.ip}","${String(l.detail).replace(/"/g, '""')}"`
+      )
+      .join('\n');
+    return delay(header + rows);
+  },
+
+  // Shifts & Multi-Shift Scheduling Management
+  getShifts: () => delay(structuredClone(state.shifts)),
+
+  createShift: ({ name, start_time, end_time, description = '' }) => {
+    if (!name || !start_time || !end_time) {
+      return fail('Shift name, start time, and end time are required');
+    }
+    const newShift = {
+      id: Date.now(),
+      name: name.trim(),
+      start_time: start_time.trim(),
+      end_time: end_time.trim(),
+      description: description.trim(),
+    };
+    state.shifts.push(newShift);
+    return delay(newShift);
+  },
+
+  deleteShift: (shiftId) => {
+    const sId = Number(shiftId);
+    const idx = state.shifts.findIndex((s) => s.id === sId);
+    if (idx === -1) return fail('Shift schedule not found');
+    const [removed] = state.shifts.splice(idx, 1);
+    const fallback = state.shifts[0];
+    state.users.forEach((u) => {
+      if (u.shift_id === sId) {
+        u.shift_id = fallback ? fallback.id : null;
+        u.shift_name = fallback ? fallback.name : 'Unassigned';
+      }
+    });
+    return delay({ success: true, removed });
+  },
+
+  assignUserShift: (userId, shiftId) => {
+    const u = state.users.find((user) => user.id === Number(userId));
+    if (!u) return fail('User not found');
+    const shift = state.shifts.find((s) => s.id === Number(shiftId));
+    if (!shift) return fail('Shift schedule not found');
+    u.shift_id = shift.id;
+    u.shift_name = shift.name;
+    return delay({
+      success: true,
+      message: `Assigned ${u.name || u.username} to ${shift.name}.`,
+      user: structuredClone(u),
+    });
+  },
+
   __resetState: () => {
     state.green = 27;
     state.red = 1;
@@ -936,10 +1065,13 @@ export const mockApi = {
     state.company = structuredClone(initialCompany);
     state.superadmin = structuredClone(initialSuperadmin);
     state.superadminOtp = '849201';
+    state.kiosk_code = 'SHARM1';
     state.owners = structuredClone(initialOwners);
     state.users = structuredClone(initialUsers);
+    state.shifts = structuredClone(initialShifts);
     state.history = structuredClone(initialHistory);
     state.calendar = structuredClone(initialCalendar);
+    state.audit_logs = structuredClone(initialAuditLogs);
   },
 };
 

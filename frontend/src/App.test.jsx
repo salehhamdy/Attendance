@@ -137,7 +137,7 @@ describe('Universal Attendance App - Full Integration & RBAC', () => {
 
     // Immutable Superadmin row loads with Saleh Hamdy and salehhamdy599@gmail.com
     expect(await screen.findByText(/You \(Saleh Hamdy\)/i)).toBeInTheDocument();
-    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
+    expect(screen.getAllByText('salehhamdy599@gmail.com').length).toBeGreaterThan(0);
     expect(screen.getByText('🛡️ Superadmin')).toBeInTheDocument();
     expect(screen.getByText('🔒 Protected (Immutable)')).toBeInTheDocument();
 

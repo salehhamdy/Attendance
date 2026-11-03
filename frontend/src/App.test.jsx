@@ -107,23 +107,37 @@ describe('Universal Attendance App - Full Integration & RBAC', () => {
     expect(screen.queryByRole('link', { name: /Superadmin Panel/i })).not.toBeInTheDocument();
   });
 
-  it('executes superadmin journey: immutability, workspace provisioning, and dark mode toggle', async () => {
+  it('executes superadmin journey: email OTP login, immutability, workspace provisioning, and dark mode toggle', async () => {
     renderApp('/login');
-    const usernameInput = screen.getByPlaceholderText('Username');
-    const passwordInput = screen.getByPlaceholderText('Password');
-    const submitBtn = screen.getByRole('button', { name: /Login/i });
 
-    await userEvent.type(usernameInput, 'superadmin');
-    await userEvent.type(passwordInput, 'adminpass');
-    await userEvent.click(submitBtn);
+    // Switch to Superadmin OTP portal tab
+    const superTab = screen.getByRole('tab', { name: /Superadmin/i });
+    await userEvent.click(superTab);
+
+    // Verify authorized email is salehhamdy599@gmail.com
+    expect(screen.getByDisplayValue('salehhamdy599@gmail.com')).toBeInTheDocument();
+
+    // Request OTP dispatch
+    const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
+    await userEvent.click(sendOtpBtn);
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/OTP verification code sent/i);
+
+    // Enter received OTP (849201 in mock)
+    const otpInput = screen.getByPlaceholderText(/Enter 6-digit OTP code/i);
+    await userEvent.type(otpInput, '849201');
+
+    const verifyBtn = screen.getByRole('button', { name: /Verify OTP & Access Console/i });
+    await userEvent.click(verifyBtn);
 
     // Lands on Platform Superadmin Console
     expect(await screen.findByRole('heading', { name: /Platform Superadmin Console/i })).toBeInTheDocument();
     expect(screen.getByText('Total Owners')).toBeInTheDocument();
     expect(screen.getByText('Active Owners')).toBeInTheDocument();
 
-    // Immutable Superadmin row loads
-    expect(await screen.findByText(/You \(Platform Superadmin\)/i)).toBeInTheDocument();
+    // Immutable Superadmin row loads with Saleh Hamdy and salehhamdy599@gmail.com
+    expect(await screen.findByText(/You \(Saleh Hamdy\)/i)).toBeInTheDocument();
+    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
     expect(screen.getByText('🛡️ Superadmin')).toBeInTheDocument();
     expect(screen.getByText('🔒 Protected (Immutable)')).toBeInTheDocument();
 

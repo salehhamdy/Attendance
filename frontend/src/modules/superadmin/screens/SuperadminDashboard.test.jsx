@@ -19,9 +19,9 @@ import { SuperadminDashboard } from '../index.js';
 const mockSuperadminData = {
   superadmin: {
     id: 0,
-    name: 'Platform Superadmin',
-    username: 'superadmin',
-    email: 'admin@platform.com',
+    name: 'Saleh Hamdy',
+    username: 'salehhamdy599@gmail.com',
+    email: 'salehhamdy599@gmail.com',
     workspace: 'Global Platform',
     role: 'superadmin',
     status: 'active',
@@ -72,8 +72,8 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
     expect(screen.getByText('19')).toBeInTheDocument();
 
     // Immutable Superadmin row
-    expect(screen.getByText(/You \(Platform Superadmin\)/i)).toBeInTheDocument();
-    expect(screen.getByText('admin@platform.com')).toBeInTheDocument();
+    expect(screen.getByText(/You \(Saleh Hamdy\)/i)).toBeInTheDocument();
+    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
     expect(screen.getByText('🛡️ Superadmin')).toBeInTheDocument();
     expect(screen.getByText('🔒 Protected (Immutable)')).toBeInTheDocument();
 

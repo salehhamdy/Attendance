@@ -120,8 +120,8 @@ export function SuperadminDashboard() {
 
   const ownersList = useMemo(() => data?.owners || [], [data?.owners]);
   const superadmin = data?.superadmin || {
-    name: 'Platform Superadmin',
-    email: 'admin@platform.com',
+    name: 'Saleh Hamdy',
+    email: 'salehhamdy599@gmail.com',
     workspace: 'Global Platform',
   };
   const stats = data?.stats || {
@@ -149,7 +149,7 @@ export function SuperadminDashboard() {
         <div>
           <h2>Platform Superadmin Console</h2>
           <p className="muted subtitle">
-            Top-level organizational authority: assign business owners, control workspace teams, and enforce permissions. Superadmin is immutable.
+            Top-level organizational authority for Saleh Hamdy (salehhamdy599@gmail.com): assign business owners, control workspace teams, and enforce permissions. Superadmin is immutable and secured with Email OTP.
           </p>
         </div>
         <Button onClick={() => setShowModal(true)}>+ Assign New Owner</Button>
@@ -224,7 +224,7 @@ export function SuperadminDashboard() {
               <tr className="superadmin-row">
                 <td>
                   <div className="owner-cell">
-                    <div className="avatar av-p">SA</div>
+                    <div className="avatar av-p">{getInitials(superadmin.name || 'Saleh Hamdy')}</div>
                     <div>
                       <strong>You ({superadmin.name})</strong>
                       <small className="block muted">{superadmin.email}</small>

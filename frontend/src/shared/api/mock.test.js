@@ -310,4 +310,42 @@ describe('Shared API Mock Module Rules', () => {
     const afterUsers = await mockApi.ownerUsers();
     expect(afterUsers.users.some((u) => u.id === tempUser.id)).toBe(false);
   });
+
+  it('enforces email OTP authentication exclusively for salehhamdy599@gmail.com', async () => {
+    // 1. Request OTP for authorized email
+    const reqRes = await mockApi.requestSuperadminOtp('salehhamdy599@gmail.com');
+    expect(reqRes.success).toBe(true);
+    expect(reqRes.otp).toBeDefined();
+
+    // 2. Reject OTP request for any other email
+    await expect(mockApi.requestSuperadminOtp('hacker@platform.com')).rejects.toThrow(
+      /Access denied: Only salehhamdy599@gmail.com is authorized/i
+    );
+
+    // 3. Verify OTP with correct code
+    const authRes = await mockApi.verifySuperadminOtp('salehhamdy599@gmail.com', reqRes.otp);
+    expect(authRes.role).toBe('superadmin');
+    expect(authRes.email).toBe('salehhamdy599@gmail.com');
+    expect(authRes.name).toBe('Saleh Hamdy');
+
+    // 4. Reject invalid OTP code
+    await expect(
+      mockApi.verifySuperadminOtp('salehhamdy599@gmail.com', '000000')
+    ).rejects.toThrow(/Invalid or expired OTP/i);
+
+    // 5. Reject OTP verification for unauthorized email
+    await expect(
+      mockApi.verifySuperadminOtp('other@email.com', reqRes.otp)
+    ).rejects.toThrow(/Access denied/i);
+
+    // 6. Direct login with OTP as password
+    const directLogin = await mockApi.login('salehhamdy599@gmail.com', reqRes.otp);
+    expect(directLogin.role).toBe('superadmin');
+    expect(directLogin.email).toBe('salehhamdy599@gmail.com');
+
+    // 7. Direct login failure with wrong password
+    await expect(
+      mockApi.login('salehhamdy599@gmail.com', 'wrong_pass')
+    ).rejects.toThrow(/Invalid OTP code/i);
+  });
 });

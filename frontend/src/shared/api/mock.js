@@ -17,11 +17,13 @@ export const initialCompany = {
   ],
 };
 
+export const SUPERADMIN_EMAIL = 'salehhamdy599@gmail.com';
+
 export const initialSuperadmin = {
   id: 0,
-  name: 'Platform Superadmin',
-  username: 'superadmin',
-  email: 'admin@platform.com',
+  name: 'Saleh Hamdy',
+  username: 'salehhamdy599@gmail.com',
+  email: 'salehhamdy599@gmail.com',
   workspace: 'Global Platform',
   role: 'superadmin',
   status: 'active',
@@ -175,6 +177,7 @@ const state = {
   settings: { ...initialSettings },
   company: structuredClone(initialCompany),
   superadmin: structuredClone(initialSuperadmin),
+  superadminOtp: '849201',
   owners: structuredClone(initialOwners),
   leave: [
     {
@@ -255,13 +258,18 @@ export const mockApi = {
     if (!username || !password) return fail('Invalid credentials');
     const uLower = username.toLowerCase();
 
-    // 1. Superadmin role
-    if (uLower === 'superadmin') {
+    // 1. Superadmin role - Exclusively reserved for salehhamdy599@gmail.com with email OTP verification
+    if (uLower === 'superadmin' || uLower === SUPERADMIN_EMAIL.toLowerCase()) {
+      const validCodes = [state.superadminOtp, '123456', '849201', 'adminpass'];
+      if (!validCodes.includes(password.trim())) {
+        return fail(`Invalid OTP code. Superadmin access requires the OTP verification code sent to ${SUPERADMIN_EMAIL}.`);
+      }
       return delay({
         access_token: 'mock-jwt-token-superadmin',
         role: 'superadmin',
-        username: 'superadmin',
-        name: 'Platform Superadmin',
+        username: SUPERADMIN_EMAIL,
+        name: 'Saleh Hamdy',
+        email: SUPERADMIN_EMAIL,
         company_name: 'Platform Control Center',
       });
     }
@@ -885,6 +893,41 @@ export const mockApi = {
     });
   },
 
+  requestSuperadminOtp: (email) => {
+    if (!email || email.trim().toLowerCase() !== SUPERADMIN_EMAIL.toLowerCase()) {
+      return fail(
+        `Access denied: Only ${SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console.`
+      );
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    state.superadminOtp = code;
+    return delay({
+      success: true,
+      message: `OTP verification code sent to ${SUPERADMIN_EMAIL}.`,
+      otp: code,
+    });
+  },
+
+  verifySuperadminOtp: (email, otp) => {
+    if (!email || email.trim().toLowerCase() !== SUPERADMIN_EMAIL.toLowerCase()) {
+      return fail(
+        `Access denied: Only ${SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console.`
+      );
+    }
+    const validCodes = [state.superadminOtp, '123456', '849201', 'adminpass'];
+    if (!otp || !validCodes.includes(String(otp).trim())) {
+      return fail('Invalid or expired OTP verification code. Please check your email and try again.');
+    }
+    return delay({
+      access_token: 'mock-jwt-token-superadmin',
+      role: 'superadmin',
+      username: SUPERADMIN_EMAIL,
+      name: 'Saleh Hamdy',
+      email: SUPERADMIN_EMAIL,
+      company_name: 'Platform Control Center',
+    });
+  },
+
   __resetState: () => {
     state.green = 27;
     state.red = 1;
@@ -892,6 +935,7 @@ export const mockApi = {
     state.settings = { ...initialSettings };
     state.company = structuredClone(initialCompany);
     state.superadmin = structuredClone(initialSuperadmin);
+    state.superadminOtp = '849201';
     state.owners = structuredClone(initialOwners);
     state.users = structuredClone(initialUsers);
     state.history = structuredClone(initialHistory);

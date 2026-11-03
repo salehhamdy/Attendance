@@ -10,8 +10,13 @@ import { SuperadminDashboard } from './modules/superadmin/index.js';
 function Protected({ role, children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (role === 'superadmin' && user.role !== 'superadmin') {
-    return <Navigate to={user.role === 'owner' ? '/owner' : '/'} replace />;
+  if (role === 'superadmin') {
+    const isSuperadminRole = user.role === 'superadmin';
+    const isSuperadminEmail =
+      !user.email || user.email.toLowerCase() === 'salehhamdy599@gmail.com';
+    if (!isSuperadminRole || !isSuperadminEmail) {
+      return <Navigate to={user.role === 'owner' ? '/owner' : '/'} replace />;
+    }
   }
   if (role === 'owner' && user.role !== 'owner' && user.role !== 'superadmin') {
     return <Navigate to="/" replace />;

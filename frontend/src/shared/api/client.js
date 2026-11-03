@@ -83,4 +83,6 @@ export const realApi = {
   suspendOwner: (id) => request('POST', `/superadmin/owners/${id}/suspend`),
   reinstateOwner: (id) => request('POST', `/superadmin/owners/${id}/reinstate`),
   removeOwner: (id) => request('DELETE', `/superadmin/owners/${id}`),
+  requestSuperadminOtp: (email) => request('POST', '/auth/superadmin/otp/request', { email }),
+  verifySuperadminOtp: (email, otp) => request('POST', '/auth/superadmin/otp/verify', { email, otp }),
 };

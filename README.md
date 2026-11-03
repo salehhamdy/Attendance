@@ -5,7 +5,7 @@ A modern, gamified GPS-based attendance management system with hierarchical mult
 Adaptable to **any business anywhere in the world** — from resort photography teams in Sharm El-Sheikh to tech startups in Cairo, London, Dubai, or global distributed organizations.
 
 ## Permission Hierarchy
-1. **Superadmin (Platform Level — Immutable):** Highest level of organizational authority. Cannot be removed, suspended, or modified by any user or administrator. Can provision business owners, assign them to workspaces, and manage owner lifecycles.
+1. **Superadmin (Platform Level — Immutable):** Highest level of organizational authority, strictly restricted to email **salehhamdy599@gmail.com** with **Email OTP (One-Time Password)** authentication. Cannot be removed, suspended, or modified by any user or administrator. Can provision business owners, assign them to workspaces, and manage owner lifecycles.
 2. **Owner (Workspace / Business Admin):** Manages an organizational workspace, configures attendance policy, arrival windows, penalty rates, geofences, and manages staff rosters and payroll.
 3. **Employee (Photographer / Staff Member):** Records geofenced or remote check-ins, earns green point bonuses, tracks monthly attendance on visual calendars, and exchanges points to waive deductions.
 
@@ -50,7 +50,7 @@ frontend/src/
 ```
 
 ## System Status
-- **Frontend (Modular Monolith):** Fully implemented and verified with **91 unit and integration tests across 12 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
+- **Frontend (Modular Monolith):** Fully implemented and verified with **94 unit and integration tests across 12 suites** (100% passing), ESLint clean (zero warnings, zero errors), Vite production build verified.
 - **Backend (FastAPI + PostgreSQL):** Planned. The frontend includes a comprehensive in-memory mock engine (`VITE_MOCK=1`) for standalone execution, demonstration, and automated testing.
 
 ## Quick Start (Frontend)
@@ -129,17 +129,17 @@ npm run build
 - Once approved by the owner, absence penalties (Black Points) are waived for the duration.
 
 ## Test Suite
-- Total Tests: **91 passing** across 12 modular test suites.
+- Total Tests: **94 passing** across 12 modular test suites.
 - Coverage:
-  - `src/App.test.jsx`: Complete integration and hierarchical RBAC suite covering unauthenticated redirection, employee journey (dashboard, calendar, leave management, route guard), owner journey (profile, branches, payroll, route guard), superadmin journey (immutability, owner governance, dark mode, signout), and suspended owner access blocking (5 tests).
+  - `src/App.test.jsx`: Complete integration and hierarchical RBAC suite covering unauthenticated redirection, employee journey (dashboard, calendar, leave management, route guard), owner journey (profile, branches, payroll, route guard), superadmin journey (Email OTP login, immutability, owner governance, dark mode, signout), and suspended owner access blocking (5 tests).
   - `src/modules/auth/auth.test.jsx`: Authentication provider, session lifecycle, token parsing (3 tests).
-  - `src/modules/auth/screens/LoginScreen.test.jsx`: Login credentials validation and error states (2 tests).
+  - `src/modules/auth/screens/LoginScreen.test.jsx`: Login credentials validation, superadmin email OTP request, verification, and unauthorized email rejection (4 tests).
   - `src/shared/ui/ui.test.jsx`: Reusable UI components (Card, Button, ToggleSwitch, StatusBadge, Modal, StatCard) (10 tests).
   - `src/shared/layout/Layout.test.jsx`: Role-aware sidebar, topbar user status, dark mode toggle, superadmin navigation, and logout (5 tests).
   - `src/modules/attendance/components/CheckInModal.test.jsx`: Spatial geofence check-in, distance calculation, multi-branch boundary detection, remote mode, and GPS simulation (4 tests).
   - `src/modules/rewards/components/RewardModal.test.jsx`: Reward payout selector, validation, and submission (4 tests).
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: Real-time stats, dynamic currency penalty calculations, progress bar, point exchange toggles, monthly attendance calendar, and points history ledger (6 tests).
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: Date range validation, request submission, and history table (4 tests).
-  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Stats cards, immutable superadmin protection, owner searching, provisioning, cascading suspension, reinstatement, cascading deletion, form validation, and error alert handling (10 tests).
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: Stats cards, immutable superadmin protection for Saleh Hamdy (`salehhamdy599@gmail.com`), owner searching, provisioning, cascading suspension, reinstatement, cascading deletion, form validation, and error alert handling (10 tests).
   - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Company profile & currency configuration, resort geofence presets, multi-branch addition/removal, direct password reset, payroll CSV export, dynamic penalty config, arrival time window adjustments, user addition/removal, form validation, and approval queues (16 tests).
-  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, multi-branch geofencing, remote check-in, password reset, payroll CSV export, points history, calendar retrieval, superadmin immutability, cascading suspension, and cascading removal (22 tests).
+  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, multi-branch geofencing, remote check-in, password reset, payroll CSV export, points history, calendar retrieval, superadmin immutability, cascading suspension, cascading removal, and exclusive email OTP authentication for `salehhamdy599@gmail.com` (23 tests).

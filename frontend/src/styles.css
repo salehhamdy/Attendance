@@ -546,6 +546,122 @@ th {
   font-weight: 600;
 }
 
+/* Superadmin Dashboard & Permission Tokens */
+.badge-superadmin {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f0abfc;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+}
+
+[data-theme="dark"] .badge-superadmin {
+  background: #4a044e;
+  color: #f0abfc;
+  border-color: #a21caf;
+}
+
+.superadmin-row {
+  background: #faf5ff !important;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .superadmin-row {
+  background: #2e1065 !important;
+}
+
+.lock-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #9333ea;
+}
+
+[data-theme="dark"] .lock-note {
+  color: #d8b4fe;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.av-p { background: #f3e8ff; color: #7e22ce; }
+.av-a { background: #e0f2fe; color: #0369a1; }
+.av-s { background: #dcfce7; color: #15803d; }
+.av-w { background: #fef3c7; color: #b45309; }
+
+[data-theme="dark"] .av-p { background: #581c87; color: #f3e8ff; }
+[data-theme="dark"] .av-a { background: #075985; color: #e0f2fe; }
+[data-theme="dark"] .av-s { background: #14532d; color: #dcfce7; }
+[data-theme="dark"] .av-w { background: #78350f; color: #fef3c7; }
+
+.owner-cell {
+  display: flex;
+  align-items: center;
+}
+
+.role-superadmin {
+  background: #fdf4ff;
+  color: #a21caf;
+  border: 1px solid #f0abfc;
+}
+
+[data-theme="dark"] .role-superadmin {
+  background: #4a044e;
+  color: #f0abfc;
+  border-color: #a21caf;
+}
+
+.btn-warn {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.btn-warn:hover {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+[data-theme="dark"] .btn-warn {
+  background: #451a03;
+  color: #fde68a;
+  border-color: #78350f;
+}
+
+.btn-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.btn-danger:hover {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .btn-danger {
+  background: #450a0a;
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+
 /* Helpers */
 .muted { color: var(--text-muted); }
 .error { color: var(--red); font-size: 0.9rem; }

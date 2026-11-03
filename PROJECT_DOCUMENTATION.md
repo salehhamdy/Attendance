@@ -13,6 +13,10 @@ frontend/src/
 │   │   ├── screens/LoginScreen.test.jsx
 │   │   ├── auth.test.jsx
 │   │   └── index.js                        # Module Public API
+│   ├── superadmin/                         # [Bounded Context] Platform Superadmin Governance
+│   │   ├── screens/SuperadminDashboard.jsx # Owner provisioning, workspace assignment, cascading controls
+│   │   ├── screens/SuperadminDashboard.test.jsx
+│   │   └── index.js                        # Module Public API
 │   ├── attendance/                         # [Bounded Context] Multi-branch & resort check-in
 │   │   ├── components/CheckInModal.jsx     # Leaflet spatial map, multi-branch circles, proximity status
 │   │   ├── components/CheckInModal.test.jsx
@@ -39,15 +43,24 @@ frontend/src/
 │   ├── layout/                             # Shell Layout, Sidebar, TopHeader & Dark Mode Toggle
 │   ├── api/                                # HTTP Client, Mock Engine, Token Storage
 │   └── utils/                              # Shared Utilities (Haversine Distance & Nearest Branch Detection)
-├── App.jsx                                 # Module Route Integration
+├── App.jsx                                 # Module Route Integration & RBAC Protection
 ├── main.jsx                                # Application Entry Point
 ├── setupTests.js                           # Test Environment Setup
-└── styles.css                              # Design Tokens, Dark Theme & Calendar Animations
+└── styles.css                              # Design Tokens, Dark Theme, Superadmin & Calendar Animations
 ```
 
 ---
 
 ## 2. Module Boundaries & Responsibilities
+
+### `modules/superadmin` (Top Level of Permission Hierarchy)
+- **Responsibility:**
+  - **Account Immutability:** The superadmin account is permanent and cannot be modified, removed, or suspended by any user or administrator.
+  - **Owner Provisioning:** Create business owner accounts and assign them to dedicated workspace organizations.
+  - **Cascading Suspension:** Suspending an owner automatically suspends their entire team across all workspaces. All affected accounts lose login, check-in, and leave/reward permissions until the owner is reinstated.
+  - **Cascading Removal:** Deleting an owner permanently purges the owner and all associated employees, attendance records, leaves, and rewards.
+  - **Superadmin Console (`/superadmin`):** Surfaces owner roster with dynamic team counts, status indicators, and live management controls.
+- **Exports:** `SuperadminDashboard`.
 
 ### `modules/auth`
 - **Responsibility:** Manages credentials authentication, JWT token storage, decoding sub/role claims, and session termination.
@@ -87,49 +100,49 @@ frontend/src/
   - **Auditing & Approvals:** Manual point adjustments with mandatory justification, leave request approvals, and reward payout authorizations.
 - **Exports:** `OwnerDashboard`, `RESORT_PRESETS`.
 
-### `shared/` (Shared Kernel)
-- `shared/ui`: Reusable design system primitives following atomic UI guidelines.
-- `shared/layout`: Persistent sidebar navigation, top header, dark mode toggle for dimly lit editing studios, and role-based route protection.
-- `shared/api`: Centralized API client with automatic token attachment, 401 interception, and `VITE_MOCK` simulation with dynamic company profile, multi-branch geofencing, password reset, and payroll CSV generation.
-- `shared/utils`: Geo-spatial calculations (`haversineDistance`, `findNearestBranch`).
-
 ---
 
-## 3. Extended Owner & Business API Contract (Base: `/api`)
+## 3. Extended API Contract (Base: `/api`)
 | Method | Endpoint | Description | Request Body / Params | Role |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/owner/company` | Retrieve company profile, currency, branches, and remote mode | — | Owner |
-| `POST` | `/owner/company` | Update business profile, currency, reward settings, and remote mode | `{ company_name, currency, reward_threshold, reward_amount, allow_remote }` | Owner |
-| `POST` | `/owner/branches` | Add a new workplace branch anywhere in the world | `{ name, lat, lng, radius }` | Owner |
-| `DELETE` | `/owner/branches/:id` | Remove a workplace branch | — | Owner |
-| `POST` | `/owner/users/:id/reset-password` | Reset staff member password directly | `{ new_password }` | Owner |
-| `GET` | `/owner/payroll/export` | Generate and export payroll CSV report | — | Owner |
-| `GET` | `/me/history` | Retrieve employee points history ledger | — | Employee / Owner |
-| `GET` | `/me/calendar` | Retrieve employee monthly attendance calendar | `?year=YYYY&month=MM` | Employee / Owner |
-| `GET` | `/owner/settings` | Retrieve active penalty amounts and arrival time windows | — | Owner |
-| `POST` | `/owner/settings` | Update penalty amounts and arrival shift windows | `{ red_penalty_egp, black_penalty_egp, early_window_start, early_window_end, normal_window_end, late_window_end }` | Owner |
-| `POST` | `/owner/users` | Add new user account | `{ name, username, role }` | Owner |
-| `DELETE` | `/owner/users/:id` | Remove user account from system | — | Owner |
-| `GET` | `/owner/users` | List all staff, points, and pending queues | — | Owner |
-| `POST` | `/owner/adjust` | Manually adjust an employee's point balance | `{ user_id, color, delta, reason }` | Owner |
-| `POST` | `/owner/leave/:id/approve` | Approve leave request & waive penalties | — | Owner |
-| `POST` | `/owner/leave/:id/reject` | Reject leave request | — | Owner |
-| `POST` | `/owner/rewards/:id/approve` | Approve milestone cash payout | — | Owner |
+| `GET` | `/superadmin/owners` | List all owners, workspaces, team sizes, and platform stats | — | Superadmin |
+| `POST` | `/superadmin/owners` | Provision a new business owner and assign to a workspace | `{ name, username, email, workspace, password }` | Superadmin |
+| `POST` | `/superadmin/owners/:id/suspend` | Suspend owner and simultaneously suspend all their team members | — | Superadmin |
+| `POST` | `/superadmin/owners/:id/reinstate` | Reinstate owner and restore full team access | — | Superadmin |
+| `DELETE` | `/superadmin/owners/:id` | Permanently remove owner and all associated team members | — | Superadmin |
+| `GET` | `/owner/company` | Retrieve company profile, currency, branches, and remote mode | — | Owner / Superadmin |
+| `POST` | `/owner/company` | Update business profile, currency, reward settings, and remote mode | `{ company_name, currency, reward_threshold, reward_amount, allow_remote }` | Owner / Superadmin |
+| `POST` | `/owner/branches` | Add a new workplace branch anywhere in the world | `{ name, lat, lng, radius }` | Owner / Superadmin |
+| `DELETE` | `/owner/branches/:id` | Remove a workplace branch | — | Owner / Superadmin |
+| `POST` | `/owner/users/:id/reset-password` | Reset staff member password directly | `{ new_password }` | Owner / Superadmin |
+| `GET` | `/owner/payroll/export` | Generate and export payroll CSV report | — | Owner / Superadmin |
+| `GET` | `/me/history` | Retrieve employee points history ledger | — | Employee / Owner / Superadmin |
+| `GET` | `/me/calendar` | Retrieve employee monthly attendance calendar | `?year=YYYY&month=MM` | Employee / Owner / Superadmin |
+| `GET` | `/owner/settings` | Retrieve active penalty amounts and arrival time windows | — | Owner / Superadmin |
+| `POST` | `/owner/settings` | Update penalty amounts and arrival shift windows | `{ red_penalty_egp, black_penalty_egp, early_window_start, early_window_end, normal_window_end, late_window_end }` | Owner / Superadmin |
+| `POST` | `/owner/users` | Add new user account | `{ name, username, role }` | Owner / Superadmin |
+| `DELETE` | `/owner/users/:id` | Remove user account from system | — | Owner / Superadmin |
+| `GET` | `/owner/users` | List all staff, points, and pending queues | — | Owner / Superadmin |
+| `POST` | `/owner/adjust` | Manually adjust an employee's point balance | `{ user_id, color, delta, reason }` | Owner / Superadmin |
+| `POST` | `/owner/leave/:id/approve` | Approve leave request & waive penalties | — | Owner / Superadmin |
+| `POST` | `/owner/leave/:id/reject` | Reject leave request | — | Owner / Superadmin |
+| `POST` | `/owner/rewards/:id/approve` | Approve milestone cash payout | — | Owner / Superadmin |
 
 ---
 
 ## 4. Quality Assurance & Verification
-- **Test Suite Execution:** 68 tests across 10 modular test suites in Vitest:
+- **Test Suite Execution:** 79 tests across 11 modular test suites in Vitest:
   - `src/modules/auth/auth.test.jsx`: 3 tests
   - `src/modules/auth/screens/LoginScreen.test.jsx`: 2 tests
   - `src/shared/ui/ui.test.jsx`: 10 tests
-  - `src/shared/layout/Layout.test.jsx`: 4 tests (includes dark mode toggle verification)
+  - `src/shared/layout/Layout.test.jsx`: 5 tests (includes dark mode and superadmin navigation verification)
   - `src/modules/attendance/components/CheckInModal.test.jsx`: 4 tests
   - `src/modules/rewards/components/RewardModal.test.jsx`: 4 tests
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 6 tests (includes monthly attendance calendar & points history ledger)
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: 4 tests
+  - `src/modules/superadmin/screens/SuperadminDashboard.test.jsx`: 6 tests (includes immutable superadmin protection, search, provisioning, cascading suspension, reinstatement, and deletion)
   - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 13 tests (includes resort presets, payroll export, password reset, company profile, multi-branch CRUD, penalty settings, arrival windows, user addition/removal)
-  - `src/shared/api/mock.test.js`: 18 tests (includes password reset, payroll CSV export, points history, calendar retrieval, multi-branch geofencing, remote check-in, dynamic penalties, user CRUD)
-  - **Result: 68 passed / 68 tests (100% success rate)**
+  - `src/shared/api/mock.test.js`: 22 tests (includes superadmin immutability, cascading suspension, cascading removal, password reset, payroll CSV export, points history, calendar retrieval, multi-branch geofencing, remote check-in, dynamic penalties, user CRUD)
+  - **Result: 79 passed / 79 tests (100% success rate)**
 - **Static Analysis:** ESLint executed on `src/` with zero warnings and zero errors.
 - **Production Build:** Vite production bundle completed cleanly in `dist/`.

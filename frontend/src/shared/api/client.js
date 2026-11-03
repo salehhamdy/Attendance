@@ -78,4 +78,9 @@ export const realApi = {
   getAttendanceCalendar: (year, month) =>
     request('GET', `/me/calendar${year ? `?year=${year}&month=${month}` : ''}`),
   exportPayrollCsv: () => request('GET', '/owner/payroll/export'),
+  superadminOwners: () => request('GET', '/superadmin/owners'),
+  createOwner: (b) => request('POST', '/superadmin/owners', b),
+  suspendOwner: (id) => request('POST', `/superadmin/owners/${id}/suspend`),
+  reinstateOwner: (id) => request('POST', `/superadmin/owners/${id}/reinstate`),
+  removeOwner: (id) => request('DELETE', `/superadmin/owners/${id}`),
 };

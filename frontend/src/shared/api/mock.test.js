@@ -219,4 +219,95 @@ describe('Shared API Mock Module Rules', () => {
     expect(calendar.length).toBeGreaterThan(0);
     expect(calendar[0]).toHaveProperty('status');
   });
+
+  it('enforces that superadmin is immutable and protected from remove, suspend, and modification', async () => {
+    // Attempt to suspend superadmin
+    await expect(mockApi.suspendOwner(0)).rejects.toThrow(/superadmin account is immutable/i);
+
+    // Attempt to remove superadmin
+    await expect(mockApi.removeOwner(0)).rejects.toThrow(/superadmin account is immutable/i);
+    await expect(mockApi.removeUser(0)).rejects.toThrow(/superadmin account is immutable/i);
+
+    // Attempt to adjust superadmin
+    await expect(
+      mockApi.ownerAdjust({ user_id: 0, color: 'green', delta: 1, reason: 'test' })
+    ).rejects.toThrow(/superadmin account is immutable/i);
+
+    // Attempt to reset superadmin password via standard endpoint
+    await expect(mockApi.resetUserPassword(0, 'hacked')).rejects.toThrow(/superadmin account is immutable/i);
+
+    // Attempt to create user with reserved superadmin username
+    await expect(
+      mockApi.addUser({ name: 'Impostor', username: 'superadmin' })
+    ).rejects.toThrow(/reserved and immutable/i);
+    await expect(
+      mockApi.createOwner({ name: 'Impostor', username: 'superadmin', workspace: 'Hack' })
+    ).rejects.toThrow(/reserved and immutable/i);
+  });
+
+  it('superadmin can create owners, assign them to workspaces, and view stats', async () => {
+    const newOwner = await mockApi.createOwner({
+      name: 'Salma Tarek',
+      username: 'salma',
+      email: 'salma@oasis.com',
+      workspace: 'Oasis Sharm Studios',
+    });
+    expect(newOwner.id).toBeDefined();
+    expect(newOwner.workspace).toBe('Oasis Sharm Studios');
+
+    const res = await mockApi.superadminOwners();
+    expect(res.owners.some((o) => o.username === 'salma')).toBe(true);
+    expect(res.stats.total_owners).toBeGreaterThanOrEqual(2);
+  });
+
+  it('suspending an owner simultaneously suspends their entire team and blocks login/checkin', async () => {
+    // Owner 99 governs user 1 (rico)
+    const suspendRes = await mockApi.suspendOwner(99);
+    expect(suspendRes.success).toBe(true);
+    expect(suspendRes.owner.status).toBe('suspended');
+
+    // Both owner and team member should be blocked from login
+    await expect(mockApi.login('owner', 'pass')).rejects.toThrow(/Account suspended.*reinstated/i);
+    await expect(mockApi.login('rico', 'pass')).rejects.toThrow(/Account suspended.*reinstated/i);
+
+    // Checkin should be blocked for team member
+    await expect(mockApi.checkin(WORK_ZONE.lat, WORK_ZONE.lng)).rejects.toThrow(/Account suspended/i);
+
+    // Reinstate owner 99
+    const reinstateRes = await mockApi.reinstateOwner(99);
+    expect(reinstateRes.success).toBe(true);
+    expect(reinstateRes.owner.status).toBe('active');
+
+    // Access restored!
+    const loginRes = await mockApi.login('rico', 'pass');
+    expect(loginRes.username).toBe('rico');
+  });
+
+  it('removing an owner permanently removes all team members under that owner', async () => {
+    // Create an owner and a user under that owner
+    const tempOwner = await mockApi.createOwner({
+      name: 'Temporary Owner',
+      username: 'tempowner',
+      workspace: 'Temp Workspace',
+    });
+
+    const tempUser = await mockApi.addUser({
+      name: 'Temp Employee',
+      username: 'tempemp',
+      role: 'employee',
+      owner_id: tempOwner.id,
+    });
+
+    // Remove owner
+    const removeRes = await mockApi.removeOwner(tempOwner.id);
+    expect(removeRes.success).toBe(true);
+
+    // Verify owner is gone
+    const ownersData = await mockApi.superadminOwners();
+    expect(ownersData.owners.some((o) => o.id === tempOwner.id)).toBe(false);
+
+    // Verify team members under that owner were cascadingly removed
+    const afterUsers = await mockApi.ownerUsers();
+    expect(afterUsers.users.some((u) => u.id === tempUser.id)).toBe(false);
+  });
 });

@@ -1,0 +1,189 @@
+import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+vi.mock('../../../shared/api/index.js', () => ({
+  api: {
+    superadminOwners: vi.fn(),
+    createOwner: vi.fn(),
+    suspendOwner: vi.fn(),
+    reinstateOwner: vi.fn(),
+    removeOwner: vi.fn(),
+  },
+}));
+
+import { api } from '../../../shared/api/index.js';
+import { SuperadminDashboard } from '../index.js';
+
+const mockSuperadminData = {
+  superadmin: {
+    id: 0,
+    name: 'Platform Superadmin',
+    username: 'superadmin',
+    email: 'admin@platform.com',
+    workspace: 'Global Platform',
+    role: 'superadmin',
+    status: 'active',
+    is_immutable: true,
+  },
+  owners: [
+    {
+      id: 10,
+      name: 'Layla Mansour',
+      username: 'layla',
+      email: 'layla@acme.com',
+      workspace: 'Acme Resorts Sharm',
+      role: 'owner',
+      status: 'active',
+      team_size: 12,
+    },
+    {
+      id: 12,
+      name: 'Nour Bakr',
+      username: 'nour',
+      email: 'nour@nile.co',
+      workspace: 'Nile Media Group',
+      role: 'owner',
+      status: 'suspended',
+      team_size: 7,
+    },
+  ],
+  stats: {
+    total_owners: 2,
+    active_owners: 1,
+    suspended_owners: 1,
+    total_team_members: 19,
+  },
+};
+
+describe('Superadmin Module - SuperadminDashboard Screen', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it('renders stats and immutable superadmin row with protected badge', async () => {
+    api.superadminOwners.mockResolvedValueOnce(mockSuperadminData);
+    render(<SuperadminDashboard />);
+
+    expect(await screen.findByText('Platform Superadmin Console')).toBeInTheDocument();
+    expect(screen.getByText('Total Owners')).toBeInTheDocument();
+    expect(screen.getByText('19')).toBeInTheDocument();
+
+    // Immutable Superadmin row
+    expect(screen.getByText(/You \(Platform Superadmin\)/i)).toBeInTheDocument();
+    expect(screen.getByText('admin@platform.com')).toBeInTheDocument();
+    expect(screen.getByText('🛡️ Superadmin')).toBeInTheDocument();
+    expect(screen.getByText('🔒 Protected (Immutable)')).toBeInTheDocument();
+
+    // Owner rows
+    expect(screen.getByText('Layla Mansour')).toBeInTheDocument();
+    expect(screen.getByText('12 members')).toBeInTheDocument();
+    expect(screen.getByText('Nour Bakr')).toBeInTheDocument();
+    expect(screen.getByText('7 members')).toBeInTheDocument();
+  });
+
+  it('filters owners by search term', async () => {
+    api.superadminOwners.mockResolvedValueOnce(mockSuperadminData);
+    render(<SuperadminDashboard />);
+
+    await screen.findByText('Layla Mansour');
+    const searchInput = screen.getByLabelText(/Search owners/i);
+    await userEvent.type(searchInput, 'Nile Media');
+
+    expect(screen.getByText('Nour Bakr')).toBeInTheDocument();
+    expect(screen.queryByText('Layla Mansour')).not.toBeInTheDocument();
+  });
+
+  it('allows superadmin to create and assign a new owner to a workspace', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.createOwner.mockResolvedValueOnce({
+      id: 15,
+      name: 'Karim Jaber',
+      username: 'kjaber',
+      email: 'kjaber@beta.io',
+      workspace: 'Beta Studios Sharm',
+      role: 'owner',
+      status: 'active',
+      team_size: 0,
+    });
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    const openModalBtn = screen.getByRole('button', { name: /\+ Assign New Owner/i });
+    await userEvent.click(openModalBtn);
+
+    expect(screen.getByText(/Assign New Business Owner/i)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/Owner Full Name/i), 'Karim Jaber');
+    await userEvent.type(screen.getByLabelText(/^Username$/i), 'kjaber');
+    await userEvent.type(screen.getByLabelText(/Email Address/i), 'kjaber@beta.io');
+    await userEvent.type(screen.getByLabelText(/Assigned Workspace \/ Business/i), 'Beta Studios Sharm');
+
+    const submitBtn = screen.getByRole('button', { name: /Create & Assign Owner/i });
+    await userEvent.click(submitBtn);
+
+    expect(api.createOwner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Karim Jaber',
+        username: 'kjaber',
+        email: 'kjaber@beta.io',
+        workspace: 'Beta Studios Sharm',
+      })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(/Owner "Karim Jaber" created and assigned/i);
+  });
+
+  it('allows superadmin to suspend an owner and shows cascading suspension feedback', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.suspendOwner.mockResolvedValueOnce({
+      success: true,
+      message: 'Owner "Layla Mansour" and team (12 members) suspended simultaneously.',
+    });
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    const suspendBtn = screen.getByRole('button', { name: /Suspend owner Layla Mansour/i });
+    await userEvent.click(suspendBtn);
+
+    expect(api.suspendOwner).toHaveBeenCalledWith(10);
+    expect(await screen.findByRole('status')).toHaveTextContent(/suspended simultaneously/i);
+  });
+
+  it('allows superadmin to reinstate a suspended owner', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.reinstateOwner.mockResolvedValueOnce({
+      success: true,
+      message: 'Owner "Nour Bakr" reinstated. Entire team access restored.',
+    });
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Nour Bakr');
+
+    const reinstateBtn = screen.getByRole('button', { name: /Reinstate owner Nour Bakr/i });
+    await userEvent.click(reinstateBtn);
+
+    expect(api.reinstateOwner).toHaveBeenCalledWith(12);
+    expect(await screen.findByRole('status')).toHaveTextContent(/access restored/i);
+  });
+
+  it('allows superadmin to remove an owner and shows cascading removal feedback', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.removeOwner.mockResolvedValueOnce({
+      success: true,
+      message: 'Owner "Layla Mansour" and all 12 team members permanently removed.',
+    });
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    const removeBtn = screen.getByRole('button', { name: /Remove owner Layla Mansour/i });
+    await userEvent.click(removeBtn);
+
+    expect(api.removeOwner).toHaveBeenCalledWith(10);
+    expect(await screen.findByRole('status')).toHaveTextContent(/permanently removed/i);
+  });
+});

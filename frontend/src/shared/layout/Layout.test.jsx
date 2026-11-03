@@ -58,6 +58,22 @@ describe('Layout Component', () => {
     expect(screen.getByText('Owner')).toBeInTheDocument();
   });
 
+  it('renders superadmin panel link and superadmin role badge', () => {
+    mockUser = { name: 'Platform Superadmin', role: 'superadmin' };
+    render(
+      <MemoryRouter>
+        <Layout>
+          <div>Superadmin Content</div>
+        </Layout>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Superadmin Panel' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Owner Panel' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(screen.getByText('Superadmin')).toBeInTheDocument();
+  });
+
   it('calls logout when clicking the logout button', async () => {
     render(
       <MemoryRouter>

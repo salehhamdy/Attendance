@@ -17,10 +17,84 @@ export const initialCompany = {
   ],
 };
 
+export const initialSuperadmin = {
+  id: 0,
+  name: 'Platform Superadmin',
+  username: 'superadmin',
+  email: 'admin@platform.com',
+  workspace: 'Global Platform',
+  role: 'superadmin',
+  status: 'active',
+  is_immutable: true,
+};
+
+export const initialOwners = [
+  {
+    id: 99,
+    name: 'Resort Owner',
+    username: 'owner',
+    email: 'owner@rixos.com',
+    workspace: 'Universal Attendance System',
+    role: 'owner',
+    status: 'active',
+    team_size: 0,
+  },
+  {
+    id: 10,
+    name: 'Layla Mansour',
+    username: 'layla',
+    email: 'layla@acme.com',
+    workspace: 'Acme Resorts Sharm',
+    role: 'owner',
+    status: 'active',
+    team_size: 12,
+  },
+  {
+    id: 11,
+    name: 'Karim Jaber',
+    username: 'kjaber',
+    email: 'kjaber@beta.io',
+    workspace: 'Beta Studios Sharm',
+    role: 'owner',
+    status: 'active',
+    team_size: 9,
+  },
+  {
+    id: 12,
+    name: 'Nour Bakr',
+    username: 'nour',
+    email: 'nour@nile.co',
+    workspace: 'Nile Media Group',
+    role: 'owner',
+    status: 'suspended',
+    team_size: 7,
+  },
+  {
+    id: 13,
+    name: 'Rania Mostafa',
+    username: 'rania',
+    email: 'rania@hub.dev',
+    workspace: 'Red Sea Hub',
+    role: 'owner',
+    status: 'active',
+    team_size: 6,
+  },
+  {
+    id: 14,
+    name: 'Ahmed Hassan',
+    username: 'ahassan',
+    email: 'ahmed@core.app',
+    workspace: 'Core Creative',
+    role: 'owner',
+    status: 'active',
+    team_size: 4,
+  },
+];
+
 const initialUsers = [
-  { id: 1, name: 'rico', username: 'rico', role: 'employee', green: 27, red: 1, black: 0 },
-  { id: 2, name: 'sara', username: 'sara', role: 'employee', green: 10, red: 0, black: 1 },
-  { id: 3, name: 'ahmed', username: 'ahmed', role: 'employee', green: 30, red: 0, black: 0 },
+  { id: 1, owner_id: 99, name: 'rico', username: 'rico', role: 'employee', status: 'active', green: 27, red: 1, black: 0 },
+  { id: 2, owner_id: 99, name: 'sara', username: 'sara', role: 'employee', status: 'active', green: 10, red: 0, black: 1 },
+  { id: 3, owner_id: 99, name: 'ahmed', username: 'ahmed', role: 'employee', status: 'active', green: 30, red: 0, black: 0 },
 ];
 
 const initialSettings = {
@@ -100,6 +174,8 @@ const state = {
   black: 0,
   settings: { ...initialSettings },
   company: structuredClone(initialCompany),
+  superadmin: structuredClone(initialSuperadmin),
+  owners: structuredClone(initialOwners),
   leave: [
     {
       id: 1,
@@ -177,7 +253,56 @@ const summary = () => ({
 export const mockApi = {
   login: (username, password) => {
     if (!username || !password) return fail('Invalid credentials');
-    const role = username.toLowerCase() === 'owner' ? 'owner' : 'employee';
+    const uLower = username.toLowerCase();
+
+    // 1. Superadmin role
+    if (uLower === 'superadmin') {
+      return delay({
+        access_token: 'mock-jwt-token-superadmin',
+        role: 'superadmin',
+        username: 'superadmin',
+        name: 'Platform Superadmin',
+        company_name: 'Platform Control Center',
+      });
+    }
+
+    // 2. Check if user is an owner
+    const matchedOwner = state.owners.find(
+      (o) => o.username.toLowerCase() === uLower || o.email.toLowerCase() === uLower
+    );
+    if (matchedOwner) {
+      if (matchedOwner.status === 'suspended') {
+        return fail(
+          'Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated.'
+        );
+      }
+      return delay({
+        access_token: `mock-jwt-token-owner-${matchedOwner.id}`,
+        role: 'owner',
+        username: matchedOwner.username,
+        name: matchedOwner.name,
+        company_name: matchedOwner.workspace || state.company.company_name,
+      });
+    }
+
+    // 3. Check if user is an employee
+    const matchedUser = state.users.find((u) => u.username.toLowerCase() === uLower);
+    if (matchedUser) {
+      if (matchedUser.status === 'suspended') {
+        return fail(
+          'Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated.'
+        );
+      }
+      return delay({
+        access_token: `mock-jwt-token-photographer-${matchedUser.id}`,
+        role: matchedUser.role || 'employee',
+        username: matchedUser.username,
+        name: matchedUser.name,
+        company_name: state.company.company_name,
+      });
+    }
+
+    const role = uLower === 'owner' ? 'owner' : 'employee';
     return delay({
       access_token: 'mock-jwt-token-photographer',
       role,
@@ -192,6 +317,14 @@ export const mockApi = {
   checkin: (lat, lng) => {
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return fail('Invalid GPS coordinates provided');
+    }
+
+    // Verify active user suspension
+    const activeUser = state.users.find((u) => u.id === 1);
+    if (activeUser && activeUser.status === 'suspended') {
+      return fail(
+        'Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated.'
+      );
     }
 
     const { branch, distance, inZone } = findNearestBranch(lat, lng, state.company.branches);
@@ -395,7 +528,10 @@ export const mockApi = {
     }),
 
   ownerAdjust: ({ user_id, color, delta, reason }) => {
-    if (!user_id || !color || delta === undefined || !reason) {
+    if (user_id === 0 || Number(user_id) === 0 || Number(user_id) === state.superadmin.id) {
+      return fail('Operation prohibited: The superadmin account is immutable and cannot be removed, suspended, or modified.');
+    }
+    if (user_id === undefined || user_id === null || user_id === '' || !color || delta === undefined || !reason) {
       return fail('user_id, color, delta, and audit reason are required');
     }
     const user = state.users.find((u) => u.id === Number(user_id));
@@ -505,18 +641,24 @@ export const mockApi = {
   },
 
   // Owner User Management
-  addUser: ({ name, username, role = 'employee' }) => {
+  addUser: ({ name, username, role = 'employee', owner_id = 99 }) => {
     if (!name || !username) return fail('Name and username are required');
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === 'superadmin') {
+      return fail('Operation prohibited: The superadmin username is reserved and immutable.');
+    }
     const exists = state.users.some(
-      (u) => u.username.toLowerCase() === username.trim().toLowerCase()
+      (u) => u.username.toLowerCase() === cleanUsername
     );
     if (exists) return fail(`Username "${username}" already exists`);
 
     const newUser = {
       id: Date.now(),
+      owner_id: Number(owner_id) || 99,
       name: name.trim(),
       username: username.trim(),
       role: role || 'employee',
+      status: 'active',
       green: 0,
       red: 0,
       black: 0,
@@ -526,17 +668,25 @@ export const mockApi = {
   },
 
   removeUser: (userId) => {
-    const idx = state.users.findIndex((u) => u.id === Number(userId));
+    const uId = Number(userId);
+    if (uId === 0 || uId === state.superadmin.id) {
+      return fail('Operation prohibited: The superadmin account is immutable and cannot be removed, suspended, or modified.');
+    }
+    const idx = state.users.findIndex((u) => u.id === uId);
     if (idx === -1) return fail('User not found');
     const [removed] = state.users.splice(idx, 1);
     return delay({ success: true, removed });
   },
 
   resetUserPassword: (userId, new_password) => {
+    const uId = Number(userId);
+    if (uId === 0 || uId === state.superadmin.id) {
+      return fail('Operation prohibited: The superadmin account is immutable and cannot be removed, suspended, or modified.');
+    }
     if (!new_password || !new_password.trim()) {
       return fail('Password cannot be empty');
     }
-    const user = state.users.find((u) => u.id === Number(userId));
+    const user = state.users.find((u) => u.id === uId) || state.owners.find((o) => o.id === uId);
     if (!user) return fail('User not found');
     user.password = new_password.trim();
     user.updated_at = new Date().toISOString();
@@ -606,12 +756,143 @@ export const mockApi = {
     });
   },
 
+  // Superadmin Management APIs
+  superadminOwners: () => {
+    const list = state.owners.map((o) => {
+      const dynamicTeamCount = state.users.filter((u) => u.owner_id === o.id).length;
+      return {
+        ...o,
+        team_size: (o.team_size || 0) + dynamicTeamCount,
+      };
+    });
+    const totalMembers = list.reduce((acc, o) => acc + (o.team_size || 0), 0);
+    return delay({
+      superadmin: structuredClone(state.superadmin),
+      owners: structuredClone(list),
+      stats: {
+        total_owners: list.length,
+        active_owners: list.filter((o) => o.status === 'active').length,
+        suspended_owners: list.filter((o) => o.status === 'suspended').length,
+        total_team_members: totalMembers,
+      },
+    });
+  },
+
+  createOwner: ({ name, username, email, workspace, password }) => {
+    if (!name || !username || !workspace) {
+      return fail('Owner name, username, and assigned workspace are required');
+    }
+    const cleanUsername = username.trim().toLowerCase();
+    if (cleanUsername === 'superadmin') {
+      return fail('Operation prohibited: The superadmin username is reserved and immutable.');
+    }
+    const exists = state.owners.some((o) => o.username.toLowerCase() === cleanUsername);
+    if (exists) {
+      return fail(`Owner with username "${username}" already exists`);
+    }
+
+    const newOwner = {
+      id: Date.now(),
+      name: name.trim(),
+      username: username.trim(),
+      email: email ? email.trim() : `${cleanUsername}@platform.com`,
+      workspace: workspace.trim(),
+      role: 'owner',
+      status: 'active',
+      team_size: 0,
+      password: password || 'OwnerPass123!',
+      created_at: new Date().toISOString(),
+    };
+    state.owners.push(newOwner);
+    return delay(structuredClone(newOwner));
+  },
+
+  suspendOwner: (ownerId) => {
+    const oId = Number(ownerId);
+    if (oId === 0 || oId === state.superadmin.id) {
+      return fail('Operation prohibited: The superadmin account is immutable and cannot be removed, suspended, or modified.');
+    }
+    const owner = state.owners.find((o) => o.id === oId);
+    if (!owner) return fail('Owner not found');
+
+    owner.status = 'suspended';
+    let suspendedCount = 0;
+    state.users.forEach((u) => {
+      if (u.owner_id === oId || (oId === 99 && (u.owner_id === undefined || u.owner_id === 99))) {
+        u.status = 'suspended';
+        suspendedCount++;
+      }
+    });
+
+    return delay({
+      success: true,
+      message: `Owner "${owner.name}" and team (${suspendedCount + (owner.team_size || 0)} members) suspended simultaneously.`,
+      owner: structuredClone(owner),
+      suspended_team_count: suspendedCount,
+    });
+  },
+
+  reinstateOwner: (ownerId) => {
+    const oId = Number(ownerId);
+    const owner = state.owners.find((o) => o.id === oId);
+    if (!owner) return fail('Owner not found');
+
+    owner.status = 'active';
+    let reinstatedCount = 0;
+    state.users.forEach((u) => {
+      if (u.owner_id === oId || (oId === 99 && (u.owner_id === undefined || u.owner_id === 99))) {
+        u.status = 'active';
+        reinstatedCount++;
+      }
+    });
+
+    return delay({
+      success: true,
+      message: `Owner "${owner.name}" reinstated. Entire team access restored.`,
+      owner: structuredClone(owner),
+      reinstated_team_count: reinstatedCount,
+    });
+  },
+
+  removeOwner: (ownerId) => {
+    const oId = Number(ownerId);
+    if (oId === 0 || oId === state.superadmin.id) {
+      return fail('Operation prohibited: The superadmin account is immutable and cannot be removed, suspended, or modified.');
+    }
+    const idx = state.owners.findIndex((o) => o.id === oId);
+    if (idx === -1) return fail('Owner not found');
+
+    const [removed] = state.owners.splice(idx, 1);
+
+    // Cascading removal: permanently delete all team members under this owner
+    const removedUserIds = [];
+    state.users = state.users.filter((u) => {
+      if (u.owner_id === oId || (oId === 99 && (u.owner_id === undefined || u.owner_id === 99))) {
+        removedUserIds.push(u.id);
+        return false;
+      }
+      return true;
+    });
+
+    state.leave = state.leave.filter((l) => !removedUserIds.includes(l.user_id));
+    state.rewards = state.rewards.filter((r) => !removedUserIds.includes(r.user_id));
+
+    return delay({
+      success: true,
+      message: `Owner "${removed.name}" and all team members permanently removed.`,
+      removed_owner: structuredClone(removed),
+      removed_team_count: removedUserIds.length + (removed.team_size || 0),
+    });
+  },
+
   __resetState: () => {
     state.green = 27;
     state.red = 1;
     state.black = 0;
     state.settings = { ...initialSettings };
     state.company = structuredClone(initialCompany);
+    state.superadmin = structuredClone(initialSuperadmin);
+    state.owners = structuredClone(initialOwners);
     state.users = structuredClone(initialUsers);
     state.history = structuredClone(initialHistory);
     state.calendar = structuredClone(initialCalendar);

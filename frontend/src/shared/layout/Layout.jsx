@@ -4,7 +4,9 @@ import { useAuth } from '../../modules/auth/index.js';
 
 export function Layout({ children }) {
   const { user, logout } = useAuth();
-  const owner = user?.role === 'owner';
+  const role = user?.role || 'employee';
+  const isSuperadmin = role === 'superadmin';
+  const isOwner = role === 'owner';
 
   const [theme, setTheme] = useState(() => {
     try {
@@ -39,7 +41,22 @@ export function Layout({ children }) {
         <div className="brand">
           <span className="brand-dot">●</span> Attendance Portal
         </div>
-        {!owner && (
+        {isSuperadmin && (
+          <>
+            <NavLink to="/superadmin">
+              Superadmin Panel
+            </NavLink>
+            <NavLink to="/owner">
+              Owner Panel
+            </NavLink>
+          </>
+        )}
+        {isOwner && (
+          <NavLink to="/owner">
+            Owner Panel
+          </NavLink>
+        )}
+        {!isOwner && !isSuperadmin && (
           <>
             <NavLink to="/" end>
               Dashboard
@@ -49,11 +66,6 @@ export function Layout({ children }) {
             </NavLink>
           </>
         )}
-        {owner && (
-          <NavLink to="/owner">
-            Owner Panel
-          </NavLink>
-        )}
       </aside>
 
       <div className="main">
@@ -62,8 +74,8 @@ export function Layout({ children }) {
             <span>
               Signed in as <b>{user?.name || user?.username || 'User'}</b>
             </span>
-            <span className={`role-pill role-${owner ? 'owner' : 'employee'}`}>
-              {owner ? 'Owner' : 'Photographer'}
+            <span className={`role-pill role-${role}`}>
+              {isSuperadmin ? 'Superadmin' : isOwner ? 'Owner' : 'Photographer'}
             </span>
           </div>
           <div className="btn-row">

@@ -6,6 +6,7 @@ from ..database import get_db
 from ..models import User, Workspace, AuditLog
 from ..schemas import LoginRequest, TokenResponse, SuperadminOtpRequest, SuperadminOtpVerify
 from ..auth import verify_password, create_access_token
+from ..services.email import send_otp_email
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -101,10 +102,17 @@ def request_superadmin_otp(req: SuperadminOtpRequest, db: Session = Depends(get_
     db.add(audit)
     db.commit()
 
+    email_sent = send_otp_email(settings.SUPERADMIN_EMAIL, code)
+    if email_sent:
+        msg = f"OTP verification code sent directly to your email inbox ({settings.SUPERADMIN_EMAIL})."
+    else:
+        msg = f"OTP verification code sent to {settings.SUPERADMIN_EMAIL}."
+
     return {
         "success": True,
-        "message": f"OTP verification code sent to {settings.SUPERADMIN_EMAIL}.",
-        "otp": code
+        "message": msg,
+        "otp": code,
+        "email_sent": email_sent
     }
 
 @router.post("/superadmin/otp/verify", response_model=TokenResponse)

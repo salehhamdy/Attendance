@@ -41,12 +41,16 @@ export function LoginScreen() {
     try {
       const res = await api.requestSuperadminOtp(superEmail);
       setOtpSent(true);
-      const codeNotice = res?.otp ? ` (Access code: ${res.otp})` : '';
-      setInfo(
-        res?.message
-          ? `${res.message}${codeNotice}`
-          : `OTP verification code sent to ${superEmail}.${codeNotice}`
-      );
+      if (res?.email_sent) {
+        setInfo(res?.message || `Verification code sent to your inbox (${superEmail}).`);
+      } else {
+        const codeNotice = res?.otp ? ` (Access code: ${res.otp})` : '';
+        setInfo(
+          res?.message
+            ? `${res.message}${codeNotice}`
+            : `OTP verification code sent to ${superEmail}.${codeNotice}`
+        );
+      }
     } catch (x) {
       setErr(x.message);
     } finally {
@@ -133,27 +137,15 @@ export function LoginScreen() {
         ) : (
           <form onSubmit={otpSent ? submitSuperadminOtp : handleSendOtp} className="form">
             <div className="otp-box">
-              <strong className="block text-sm" style={{ color: 'var(--primary)' }}>
-                Protected Superadmin Access
-              </strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '18px' }}>🛡️</span>
+                <strong className="text-sm" style={{ color: 'var(--primary)' }}>
+                  Protected Superadmin Console
+                </strong>
+              </div>
               <small className="muted block">
-                Exclusively restricted to <b>salehhamdy599@gmail.com</b> with one-time verification password.
+                Direct verification code sent to <b>{superEmail}</b>
               </small>
-            </div>
-
-            <div>
-              <label htmlFor="super-email" className="field-label text-sm">
-                Authorized Superadmin Email
-              </label>
-              <input
-                id="super-email"
-                type="email"
-                placeholder="salehhamdy599@gmail.com"
-                value={superEmail}
-                onChange={(e) => setSuperEmail(e.target.value)}
-                required
-                disabled={otpSent}
-              />
             </div>
 
             {otpSent && (

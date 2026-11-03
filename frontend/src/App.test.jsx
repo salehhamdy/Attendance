@@ -115,7 +115,7 @@ describe('Universal Attendance App - Full Integration & RBAC', () => {
     await userEvent.click(superTab);
 
     // Verify authorized email is salehhamdy599@gmail.com
-    expect(screen.getByDisplayValue('salehhamdy599@gmail.com')).toBeInTheDocument();
+    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
 
     // Request OTP dispatch
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });

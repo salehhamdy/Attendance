@@ -53,6 +53,7 @@ describe('Auth Module - LoginScreen', () => {
       success: true,
       message: 'OTP verification code sent to salehhamdy599@gmail.com.',
       otp: '849201',
+      email_sent: true,
     });
     loginWithOtp.mockResolvedValueOnce();
 
@@ -60,8 +61,8 @@ describe('Auth Module - LoginScreen', () => {
     const superTab = screen.getByRole('tab', { name: /Superadmin/i });
     await userEvent.click(superTab);
 
-    expect(screen.getByText(/Protected Superadmin Access/i)).toBeInTheDocument();
-    expect(screen.getByDisplayValue('salehhamdy599@gmail.com')).toBeInTheDocument();
+    expect(screen.getByText(/Protected Superadmin Console/i)).toBeInTheDocument();
+    expect(screen.getByText(/salehhamdy599@gmail.com/i)).toBeInTheDocument();
 
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
     await userEvent.click(sendOtpBtn);
@@ -78,23 +79,19 @@ describe('Auth Module - LoginScreen', () => {
     expect(loginWithOtp).toHaveBeenCalledWith('salehhamdy599@gmail.com', '849201');
   });
 
-  it('rejects OTP request when an unauthorized email is entered', async () => {
+  it('handles error when OTP request fails', async () => {
     api.requestSuperadminOtp.mockRejectedValueOnce(
-      new Error('Access denied: Only salehhamdy599@gmail.com is authorized to access the Platform Superadmin Console.')
+      new Error('Email delivery error. Please try again later.')
     );
 
     render(<LoginScreen />);
     await userEvent.click(screen.getByRole('tab', { name: /Superadmin/i }));
 
-    const emailInput = screen.getByDisplayValue('salehhamdy599@gmail.com');
-    await userEvent.clear(emailInput);
-    await userEvent.type(emailInput, 'intruder@other.com');
-
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
     await userEvent.click(sendOtpBtn);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /Access denied: Only salehhamdy599@gmail.com is authorized/i
+      /Email delivery error/i
     );
   });
 });

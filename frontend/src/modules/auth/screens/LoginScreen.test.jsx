@@ -1,11 +1,10 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const login = vi.fn();
 const loginWithOtp = vi.fn();
-
 vi.mock('../context/AuthContext.jsx', () => ({
   useAuth: () => ({ login, loginWithOtp }),
 }));
@@ -21,21 +20,25 @@ vi.mock('../../../shared/api/index.js', () => ({
 import { api } from '../../../shared/api/index.js';
 import { LoginScreen } from './LoginScreen.jsx';
 
-describe('Auth Module - LoginScreen', () => {
+describe('LoginScreen', () => {
   beforeEach(() => {
-    cleanup();
-    login.mockReset();
-    loginWithOtp.mockReset();
     vi.clearAllMocks();
   });
 
-  it('submits the entered credentials for staff and owners', async () => {
-    login.mockResolvedValue();
+  it('renders username and password inputs, plus login button', () => {
+    render(<LoginScreen />);
+    expect(screen.getByPlaceholderText('Username')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
+  });
+
+  it('submits valid credentials to auth context login()', async () => {
+    login.mockResolvedValueOnce();
     render(<LoginScreen />);
     await userEvent.type(screen.getByPlaceholderText('Username'), 'rico');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'secret');
+    await userEvent.type(screen.getByPlaceholderText('Password'), 'pass');
     await userEvent.click(screen.getByRole('button', { name: 'Login' }));
-    expect(login).toHaveBeenCalledWith('rico', 'secret');
+    expect(login).toHaveBeenCalledWith('rico', 'pass');
   });
 
   it('shows the error on failure and re-enables the button', async () => {
@@ -48,10 +51,10 @@ describe('Auth Module - LoginScreen', () => {
     expect(screen.getByRole('button', { name: 'Login' })).toBeEnabled();
   });
 
-  it('switches to Superadmin tab, requests OTP for salehhamdy599@gmail.com, and logs in with code', async () => {
+  it('switches to Superadmin tab, requires manual email entry, requests OTP, and logs in with code', async () => {
     api.requestSuperadminOtp.mockResolvedValueOnce({
       success: true,
-      message: 'OTP verification code sent to salehhamdy599@gmail.com.',
+      message: 'OTP verification code sent to your authorized email address.',
       otp: '849201',
       email_sent: true,
     });
@@ -62,7 +65,15 @@ describe('Auth Module - LoginScreen', () => {
     await userEvent.click(superTab);
 
     expect(screen.getByText(/Protected Superadmin Console/i)).toBeInTheDocument();
-    expect(screen.getByText(/salehhamdy599@gmail.com/i)).toBeInTheDocument();
+    // Superadmin email should NOT be pre-filled or rendered as plain copy in the UI
+    expect(screen.queryByText('salehhamdy599@gmail.com')).not.toBeInTheDocument();
+
+    const emailInput = screen.getByPlaceholderText(/Enter administrator email/i);
+    expect(emailInput).toHaveValue('');
+
+    // User types in their authorized email
+    await userEvent.type(emailInput, 'salehhamdy599@gmail.com');
+    expect(emailInput).toHaveValue('salehhamdy599@gmail.com');
 
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
     await userEvent.click(sendOtpBtn);
@@ -79,6 +90,17 @@ describe('Auth Module - LoginScreen', () => {
     expect(loginWithOtp).toHaveBeenCalledWith('salehhamdy599@gmail.com', '849201');
   });
 
+  it('validates that email is entered before requesting OTP', async () => {
+    render(<LoginScreen />);
+    await userEvent.click(screen.getByRole('tab', { name: /Superadmin/i }));
+
+    const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
+    await userEvent.click(sendOtpBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Please enter your administrator email/i);
+    expect(api.requestSuperadminOtp).not.toHaveBeenCalled();
+  });
+
   it('handles error when OTP request fails', async () => {
     api.requestSuperadminOtp.mockRejectedValueOnce(
       new Error('Email delivery error. Please try again later.')
@@ -86,6 +108,9 @@ describe('Auth Module - LoginScreen', () => {
 
     render(<LoginScreen />);
     await userEvent.click(screen.getByRole('tab', { name: /Superadmin/i }));
+
+    const emailInput = screen.getByPlaceholderText(/Enter administrator email/i);
+    await userEvent.type(emailInput, 'salehhamdy599@gmail.com');
 
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });
     await userEvent.click(sendOtpBtn);

@@ -114,8 +114,12 @@ describe('Universal Attendance App - Full Integration & RBAC', () => {
     const superTab = screen.getByRole('tab', { name: /Superadmin/i });
     await userEvent.click(superTab);
 
-    // Verify authorized email is salehhamdy599@gmail.com
-    expect(screen.getByText('salehhamdy599@gmail.com')).toBeInTheDocument();
+    // Verify authorized email is NOT visible in UI before user types it
+    expect(screen.queryByText('salehhamdy599@gmail.com')).not.toBeInTheDocument();
+
+    // User types authorized administrator email
+    const emailInput = screen.getByPlaceholderText(/Enter administrator email/i);
+    await userEvent.type(emailInput, 'salehhamdy599@gmail.com');
 
     // Request OTP dispatch
     const sendOtpBtn = screen.getByRole('button', { name: /Send OTP to Email/i });

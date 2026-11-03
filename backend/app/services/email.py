@@ -72,3 +72,4 @@ def send_otp_email(recipient: str, otp_code: str) -> bool:
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send email to {recipient}: {e}")
         return False
+

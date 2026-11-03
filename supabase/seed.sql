@@ -9,7 +9,7 @@ INSERT INTO public.workspaces (
     reward_threshold, reward_amount_desc, allow_remote, kiosk_code
 ) VALUES (
     '00000000-0000-0000-0000-000000000001',
-    'Acme Resorts Sharm El-Sheikh',
+    'Rixos Radamis (Sharm El-Sheikh)',
     'EGP',
     250,
     1000,
@@ -32,7 +32,7 @@ VALUES
     'Morning Shift',
     '07:00',
     '15:00',
-    'Resort morning & breakfast photography'
+    'Resort morning & breakfast'
 ),
 (
     '00000000-0000-0000-0000-000000000012',
@@ -48,7 +48,7 @@ VALUES
     'Night Shift',
     '23:00',
     '07:00',
-    'Overnight photo editing & system maintenance'
+    'Overnight system maintenance'
 )
 ON CONFLICT (id) DO NOTHING;
 

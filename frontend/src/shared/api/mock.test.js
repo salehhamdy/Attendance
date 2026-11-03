@@ -319,7 +319,7 @@ describe('Shared API Mock Module Rules', () => {
 
     // 2. Reject OTP request for any other email
     await expect(mockApi.requestSuperadminOtp('hacker@platform.com')).rejects.toThrow(
-      /Access denied: Only salehhamdy599@gmail.com is authorized/i
+      /Access denied: This email is not authorized/i
     );
 
     // 3. Verify OTP with correct code

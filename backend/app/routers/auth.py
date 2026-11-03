@@ -29,7 +29,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         if req.password.strip() not in valid_otps:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid OTP code. Superadmin access requires the OTP verification code sent to {settings.SUPERADMIN_EMAIL}."
+                detail="Invalid OTP code. Superadmin access requires the OTP verification code sent to your authorized email address."
             )
         super_user = db.query(User).filter(User.username == settings.SUPERADMIN_EMAIL).first()
         token = create_access_token(data={"sub": settings.SUPERADMIN_EMAIL, "role": "superadmin"})
@@ -86,7 +86,7 @@ def request_superadmin_otp(req: SuperadminOtpRequest, db: Session = Depends(get_
     if not req.email or req.email.strip().lower() != settings.SUPERADMIN_EMAIL.lower():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: Only {settings.SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console."
+            detail="Access denied: This email is not authorized for the Superadmin Console."
         )
 
     code = str(random.randint(100000, 999999))
@@ -104,9 +104,9 @@ def request_superadmin_otp(req: SuperadminOtpRequest, db: Session = Depends(get_
 
     email_sent = send_otp_email(settings.SUPERADMIN_EMAIL, code)
     if email_sent:
-        msg = f"OTP verification code sent directly to your email inbox ({settings.SUPERADMIN_EMAIL})."
+        msg = "OTP verification code sent directly to your authorized email address."
     else:
-        msg = f"OTP verification code sent to {settings.SUPERADMIN_EMAIL}."
+        msg = "OTP verification code sent to your authorized email address."
 
     return {
         "success": True,
@@ -120,7 +120,7 @@ def verify_superadmin_otp(req: SuperadminOtpVerify, db: Session = Depends(get_db
     if not req.email or req.email.strip().lower() != settings.SUPERADMIN_EMAIL.lower():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: Only {settings.SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console."
+            detail="Access denied: This email is not authorized for the Superadmin Console."
         )
 
     valid_otps = [ACTIVE_OTPS.get(settings.SUPERADMIN_EMAIL), "123456", "849201", "adminpass"]

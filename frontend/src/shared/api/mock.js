@@ -958,14 +958,14 @@ export const mockApi = {
   requestSuperadminOtp: (email) => {
     if (!email || email.trim().toLowerCase() !== SUPERADMIN_EMAIL.toLowerCase()) {
       return fail(
-        `Access denied: Only ${SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console.`
+        'Access denied: This email is not authorized for the Superadmin Console.'
       );
     }
     const code = String(Math.floor(100000 + Math.random() * 900000));
     state.superadminOtp = code;
     return delay({
       success: true,
-      message: `OTP verification code sent to ${SUPERADMIN_EMAIL}.`,
+      message: 'OTP verification code sent to your authorized email address.',
       otp: code,
     });
   },
@@ -973,7 +973,7 @@ export const mockApi = {
   verifySuperadminOtp: (email, otp) => {
     if (!email || email.trim().toLowerCase() !== SUPERADMIN_EMAIL.toLowerCase()) {
       return fail(
-        `Access denied: Only ${SUPERADMIN_EMAIL} is authorized to access the Platform Superadmin Console.`
+        'Access denied: This email is not authorized for the Superadmin Console.'
       );
     }
     const validCodes = [state.superadminOtp, '123456', '849201', 'adminpass'];

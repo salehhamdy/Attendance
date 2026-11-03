@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { api, SUPERADMIN_EMAIL } from '../../../shared/api/index.js';
+import { api } from '../../../shared/api/index.js';
 import { Card, Button } from '../../../shared/ui/index.js';
 
 export function LoginScreen() {
@@ -12,7 +12,7 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
 
   // Superadmin OTP form state
-  const [superEmail, setSuperEmail] = useState(SUPERADMIN_EMAIL || 'salehhamdy599@gmail.com');
+  const [superEmail, setSuperEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [info, setInfo] = useState('');
@@ -35,21 +35,24 @@ export function LoginScreen() {
 
   async function handleSendOtp(e) {
     if (e) e.preventDefault();
+    if (!superEmail.trim()) {
+      setErr('Please enter your administrator email');
+      return;
+    }
     setBusy(true);
     setErr('');
     setInfo('');
     try {
-      const res = await api.requestSuperadminOtp(superEmail);
+      const res = await api.requestSuperadminOtp(superEmail.trim());
       setOtpSent(true);
+      const rawMsg = res?.message || 'OTP verification code sent to your authorized email address.';
+      // Ensure no raw email address is ever printed on screen
+      const cleanMsg = rawMsg.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'your authorized email');
       if (res?.email_sent) {
-        setInfo(res?.message || `Verification code sent to your inbox (${superEmail}).`);
+        setInfo(cleanMsg);
       } else {
         const codeNotice = res?.otp ? ` (Access code: ${res.otp})` : '';
-        setInfo(
-          res?.message
-            ? `${res.message}${codeNotice}`
-            : `OTP verification code sent to ${superEmail}.${codeNotice}`
-        );
+        setInfo(`${cleanMsg}${codeNotice}`);
       }
     } catch (x) {
       setErr(x.message);
@@ -67,7 +70,7 @@ export function LoginScreen() {
     setBusy(true);
     setErr('');
     try {
-      await loginWithOtp(superEmail, otp);
+      await loginWithOtp(superEmail.trim(), otp.trim());
     } catch (x) {
       setErr(x.message);
       setBusy(false);
@@ -135,7 +138,7 @@ export function LoginScreen() {
             </Button>
           </form>
         ) : (
-          <form onSubmit={otpSent ? submitSuperadminOtp : handleSendOtp} className="form">
+          <form onSubmit={otpSent ? submitSuperadminOtp : handleSendOtp} className="form" noValidate>
             <div className="otp-box">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <span style={{ fontSize: '18px' }}>🛡️</span>
@@ -144,8 +147,24 @@ export function LoginScreen() {
                 </strong>
               </div>
               <small className="muted block">
-                Direct verification code sent to <b>{superEmail}</b>
+                Enter root administrator email to receive a single-use verification code.
               </small>
+            </div>
+
+            <div>
+              <label htmlFor="super-email" className="field-label text-sm">
+                Authorized Superadmin Email
+              </label>
+              <input
+                id="super-email"
+                type="email"
+                placeholder="Enter administrator email"
+                value={superEmail}
+                onChange={(e) => setSuperEmail(e.target.value)}
+                required
+                disabled={otpSent || busy}
+                autoFocus={!otpSent}
+              />
             </div>
 
             {otpSent && (
@@ -185,6 +204,19 @@ export function LoginScreen() {
                   disabled={busy}
                 >
                   Resend OTP Code
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setOtpSent(false);
+                    setOtp('');
+                    setInfo('');
+                    setErr('');
+                  }}
+                  disabled={busy}
+                >
+                  Change Email
                 </button>
               </div>
             )}

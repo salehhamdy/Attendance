@@ -331,7 +331,7 @@ export function SuperadminDashboard() {
             Provision a new owner account and assign them to an organizational workspace.
           </p>
 
-          <form onSubmit={handleCreateOwner} className="form">
+          <form onSubmit={handleCreateOwner} className="form" noValidate>
             <div className="two">
               <div>
                 <label htmlFor="owner-name" className="field-label">

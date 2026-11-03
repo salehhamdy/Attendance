@@ -197,4 +197,65 @@ describe('Superadmin Module - SuperadminDashboard Screen', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Superadmin network timeout');
   });
+
+  it('validates required fields when assigning a new owner', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    const openModalBtn = screen.getByRole('button', { name: /\+ Assign New Owner/i });
+    await userEvent.click(openModalBtn);
+
+    const submitBtn = screen.getByRole('button', { name: /Create & Assign Owner/i });
+    await userEvent.click(submitBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /Owner name, username, and assigned workspace are required/i
+    );
+  });
+
+  it('handles API errors when creating an owner', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.createOwner.mockRejectedValueOnce(new Error('Username already taken in platform'));
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    const openModalBtn = screen.getByRole('button', { name: /\+ Assign New Owner/i });
+    await userEvent.click(openModalBtn);
+
+    await userEvent.type(screen.getByLabelText(/Owner Full Name/i), 'New Owner');
+    await userEvent.type(screen.getByLabelText(/^Username$/i), 'duplicate_user');
+    await userEvent.type(screen.getByLabelText(/Assigned Workspace \/ Business/i), 'Workspace');
+
+    const submitBtn = screen.getByRole('button', { name: /Create & Assign Owner/i });
+    await userEvent.click(submitBtn);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Username already taken in platform');
+  });
+
+  it('handles API errors when suspending, reinstating, or removing an owner', async () => {
+    api.superadminOwners.mockResolvedValue(mockSuperadminData);
+    api.suspendOwner.mockRejectedValueOnce(new Error('Cannot suspend owner: database lock'));
+    api.reinstateOwner.mockRejectedValueOnce(new Error('Cannot reinstate: network failure'));
+    api.removeOwner.mockRejectedValueOnce(new Error('Cannot remove: foreign key violation'));
+
+    render(<SuperadminDashboard />);
+    await screen.findByText('Layla Mansour');
+
+    // Suspend error
+    const suspendBtn = screen.getByRole('button', { name: /Suspend owner Layla Mansour/i });
+    await userEvent.click(suspendBtn);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot suspend owner: database lock');
+
+    // Reinstate error
+    const reinstateBtn = screen.getByRole('button', { name: /Reinstate owner Nour Bakr/i });
+    await userEvent.click(reinstateBtn);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reinstate: network failure');
+
+    // Remove error
+    const removeBtn = screen.getByRole('button', { name: /Remove owner Layla Mansour/i });
+    await userEvent.click(removeBtn);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot remove: foreign key violation');
+  });
 });

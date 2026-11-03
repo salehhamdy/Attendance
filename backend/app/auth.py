@@ -76,6 +76,16 @@ def get_current_user(
             detail="Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated."
         )
 
+    if user.role == "employee" and user.owner_id:
+        owner = db.query(User).filter(User.id == user.owner_id).first()
+        if owner and owner.status == "suspended":
+            user.status = "suspended"
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated."
+            )
+
     return user
 
 def require_role(allowed_roles: List[str]):

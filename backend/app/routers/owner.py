@@ -153,6 +153,12 @@ def adjust_points(
             detail="Operation prohibited: The superadmin account is immutable."
         )
 
+    if current_user.role == "owner" and target.workspace_id != current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation prohibited: Cannot adjust points for a user in another workspace."
+        )
+
     delta_g, delta_r, delta_b = 0, 0, 0
     color = req.color.lower().strip()
     if color == "green":
@@ -450,6 +456,12 @@ def delete_user(
             detail="Operation prohibited: The superadmin account is immutable."
         )
 
+    if current_user.role == "owner" and (user.role != "employee" or user.workspace_id != current_user.workspace_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation prohibited: Owners can only remove employees within their own workspace."
+        )
+
     db.delete(user)
     log_audit_event(
         db,
@@ -476,6 +488,12 @@ def reset_password(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Operation prohibited: Superadmin credentials cannot be reset via owner dashboard."
+        )
+
+    if current_user.role == "owner" and user.workspace_id != current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operation prohibited: Cannot reset password for a user in another workspace."
         )
 
     if not req.new_password or len(req.new_password) < 6:
@@ -673,6 +691,7 @@ def export_payroll_csv(
         total_ded = red_ded + black_ded
         net = -total_ded
         shift_name = u.shift.name if u.shift else "Default"
+        approved_rewards = db.query(RewardRequest).filter(RewardRequest.user_id == u.id, RewardRequest.status == "approved").count()
         rows.append(",".join([
             f"#{u.id}",
             f'"{u.name}"',
@@ -685,7 +704,7 @@ def export_payroll_csv(
             str(u.black or 0),
             str(black_ded),
             str(total_ded),
-            "0",
+            str(approved_rewards),
             str(net),
         ]))
 

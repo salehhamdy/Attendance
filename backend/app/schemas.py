@@ -25,6 +25,7 @@ class TokenResponse(BaseModel):
 
 # Check-in Schemas
 class CheckinRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     lat: float
     lng: float
     photo: Optional[str] = None
@@ -32,6 +33,7 @@ class CheckinRequest(BaseModel):
     kiosk_code: Optional[str] = None
 
 class CheckinResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     success: bool
     type: str
     message: str
@@ -43,6 +45,8 @@ class CheckinResponse(BaseModel):
     photo: Optional[str] = None
     accuracy: Optional[float] = None
     kiosk_verified: bool = False
+    delta_green: Optional[int] = None
+    summary: Optional[Any] = None
 
 # Summary / Dashboard Schemas
 class BranchResponse(BaseModel):

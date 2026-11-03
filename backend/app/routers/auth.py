@@ -58,6 +58,16 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
             detail="Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated."
         )
 
+    if user.role == "employee" and user.owner_id:
+        owner = db.query(User).filter(User.id == user.owner_id).first()
+        if owner and owner.status == "suspended":
+            user.status = "suspended"
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account suspended: Your organization owner has been suspended by the platform superadmin. Access is restricted until reinstated."
+            )
+
     company_name = user.workspace.name if user.workspace else "Universal Attendance System"
     token = create_access_token(data={"sub": user.username, "role": user.role, "user_id": user.id})
 

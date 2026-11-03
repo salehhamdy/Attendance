@@ -210,6 +210,9 @@ def record_checkin(
     db.commit()
     db.refresh(current_user)
 
+    # Fetch refreshed summary
+    summary_data = get_user_summary(current_user=current_user, db=db)
+
     return {
         "success": True,
         "type": point_type,
@@ -222,7 +225,8 @@ def record_checkin(
         "photo": req.photo,
         "accuracy": acc,
         "kiosk_verified": bool(kiosk_code_match),
-        "delta_green": delta_g
+        "delta_green": delta_g,
+        "summary": summary_data
     }
 
 @router.get("/me/history")
@@ -255,7 +259,8 @@ def get_user_history(
 def get_user_calendar(
     year: int = None,
     month: int = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     now = get_current_cairo_time()
     y = year or now.year
@@ -264,11 +269,60 @@ def get_user_calendar(
     import calendar
     calendar_days = []
     days_in_month = calendar.monthrange(y, m)[1]
+
+    # Query user check-in history for this year and month
+    from datetime import date
+    start_date = datetime(y, m, 1)
+    end_date = datetime(y, m, days_in_month, 23, 59, 59)
+    ledgers = db.query(AttendanceLedger).filter(
+        AttendanceLedger.user_id == current_user.id,
+        AttendanceLedger.timestamp >= start_date,
+        AttendanceLedger.timestamp <= end_date
+    ).all()
+    ledger_map = {}
+    for entry in ledgers:
+        if entry.timestamp:
+            d_num = entry.timestamp.day
+            ledger_map[d_num] = entry
+
+    # Query approved leaves
+    month_start_str = f"{y}-{m:02d}-01"
+    month_end_str = f"{y}-{m:02d}-{days_in_month:02d}"
+    leaves = db.query(LeaveRequest).filter(
+        LeaveRequest.user_id == current_user.id,
+        LeaveRequest.status == "approved",
+        LeaveRequest.start_date <= month_end_str,
+        LeaveRequest.end_date >= month_start_str
+    ).all()
+
     for d in range(1, days_in_month + 1):
+        date_str = f"{y}-{m:02d}-{d:02d}"
         stat = "normal"
         lbl = "On-Time"
         tm = "08:45"
-        if d in [1, 3, 8]:
+
+        # Check if user has an approved leave on this day
+        is_leave = any(l.start_date <= date_str <= l.end_date for l in leaves)
+        if is_leave:
+            stat = "leave"
+            lbl = "Approved Leave"
+            tm = "-"
+        elif d in ledger_map:
+            ent = ledger_map[d]
+            if ent.delta_green > 0:
+                stat = "early"
+                lbl = "Early (+1G)"
+            elif ent.delta_red > 0:
+                stat = "late"
+                lbl = "Late (+1R)"
+            elif ent.delta_black > 0:
+                stat = "black"
+                lbl = "Severe (+1B)"
+            else:
+                stat = "normal"
+                lbl = "On-Time"
+            tm = ent.timestamp.strftime("%H:%M") if ent.timestamp else "08:45"
+        elif d in [1, 3, 8]:
             stat = "early"
             lbl = "Early (+1G)"
             tm = "07:35"
@@ -287,7 +341,7 @@ def get_user_calendar(
 
         calendar_days.append({
             "day": d,
-            "date": f"{y}-{m:02d}-{d:02d}",
+            "date": date_str,
             "status": stat,
             "label": lbl,
             "time": tm

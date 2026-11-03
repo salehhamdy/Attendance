@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.*
+!.env.example
+!.env.mock
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.sqlite3
+*.db
+
+# Node
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent config and spec (local only)
+.agents/
+gemini-code-1793696427203.md
+
+# Docker
+docker-compose.override.yml
+

@@ -1,93 +1,111 @@
 # Sharm Photographers Attendance System - Project Documentation
 
-## 1. System Overview & Architecture
-The Sharm Photographers Attendance System is a location-validated, gamified attendance platform designed for professional photography teams in Sharm El-Sheikh resort properties (e.g. Rixos Radamis).
+## 1. Modular Monolith Architecture
+The frontend is architected as a **Modular Monolith**, decomposing the application into bounded business domains while preserving a single deployable artifact. This ensures high cohesion within domains, low coupling between modules, and clean extensibility.
 
-### Tech Stack
-- **Frontend Architecture:** Single Page Application (SPA) built with React 18, Vite, React Router 6, and Leaflet for geospatial visualization.
-- **Styling & Motion:** Clean, card-based administrative UI following section 1-3 of the reverse-engineering specification. Includes 500ms ease-out progress animations, 250ms spring/ease modal popups, and 150ms linear toggle switches.
-- **Mock Layer (`VITE_MOCK=1`):** Complete stateful in-memory mock engine in `frontend/src/mock.js` supporting offline/standalone execution, check-ins, leave submissions, point trading, and owner actions.
-- **Backend (Planned):** FastAPI, PostgreSQL with append-only point ledger, JWT authentication (Employee/Owner RBAC), and geospatial point-in-polygon validation.
-
----
-
-## 2. Component Hierarchy (Frontend)
+### Architecture Overview
 ```text
-App
-├── AuthProvider (Global Session State & JWT Role Management)
-├── BrowserRouter
-│   ├── Login (/login)
-│   └── Protected Layout (Role-aware shell with Sidebar & TopHeader)
-│       ├── Employee Routes
-│       │   ├── EmployeeDashboard (/)
-│       │   │   ├── StatCard (Green, Red, Black variants with dynamic EGP calculations)
-│       │   │   ├── Green Reward Progress Card (Animated 30-pt bar with threshold trigger)
-│       │   │   ├── Monthly Attendance Deductions Card (Point cancellation toggles)
-│       │   │   ├── CheckInModal (Leaflet map, geofence circle, proximity status badge)
-│       │   │   └── RewardModal (InstaPay / Vodafone Cash method selector & number input)
-│       │   └── LeaveManagement (/leave)
-│       │       ├── RequestForm (Date range constraint validation & audit reason)
-│       │       └── RequestHistoryTable (Status badges: approved, rejected, pending)
-│       └── Owner Routes
-│           └── OwnerDashboard (/owner)
-│               ├── Overview StatCards (Total Employees, Pending Leaves, Pending Rewards)
-│               ├── EmployeeList Table (Live Green/Red/Black balances & EGP deductions)
-│               ├── PointAdjustmentForm (Manual green bonus or red/black penalty edits)
-│               ├── LeaveApprovalList (Approve with penalty waiver / Reject)
-│               └── RewardApprovalList (Approve 40 USD / 2,200 EGP disbursement)
-└── Shared UI Kit (`frontend/src/components/ui.jsx`)
-    ├── Card
-    ├── Button (Primary, Ghost variants)
-    ├── ToggleSwitch (Linear animation, accessible ARIA switch)
-    ├── StatusBadge (Semantic status styling)
-    ├── Modal (Accessible dialog with fade/pop animations)
-    └── StatCard (Metric card with semantic border indicators)
+frontend/src/
+├── modules/
+│   ├── auth/                               # [Bounded Context] User identity & session
+│   │   ├── context/AuthContext.jsx         # Context provider for JWT tokens & roles
+│   │   ├── screens/LoginScreen.jsx         # Login screen
+│   │   ├── screens/LoginScreen.test.jsx
+│   │   ├── auth.test.jsx
+│   │   └── index.js                        # Module Public API
+│   ├── attendance/                         # [Bounded Context] Geofenced check-in
+│   │   ├── components/CheckInModal.jsx     # Leaflet spatial map & proximity badge
+│   │   ├── components/CheckInModal.test.jsx
+│   │   ├── services/geofence.js            # Work zone definitions & spatial calculations
+│   │   └── index.js                        # Module Public API
+│   ├── ledger/                             # [Bounded Context] Attendance points & penalties
+│   │   ├── screens/EmployeeDashboard.jsx   # Metrics, 30-pt progress bar, penalty cancellation
+│   │   ├── screens/EmployeeDashboard.test.jsx
+│   │   └── index.js                        # Module Public API
+│   ├── rewards/                            # [Bounded Context] Milestone cash rewards
+│   │   ├── components/RewardModal.jsx      # InstaPay & Vodafone Cash claim modal
+│   │   ├── components/RewardModal.test.jsx
+│   │   └── index.js                        # Module Public API
+│   ├── leave/                              # [Bounded Context] Absence waiver requests
+│   │   ├── screens/LeaveManagement.jsx     # Leave request form & history table
+│   │   ├── screens/LeaveManagement.test.jsx
+│   │   └── index.js                        # Module Public API
+│   └── owner/                              # [Bounded Context] Administrative governance
+│       ├── screens/OwnerDashboard.jsx      # Photographers ledger, points adjustment, approvals
+│       ├── screens/OwnerDashboard.test.jsx
+│       └── index.js                        # Module Public API
+├── shared/                                 # Shared Kernel
+│   ├── ui/                                 # UI Primitives (Card, Button, Toggle, Modal, Badge, StatCard)
+│   ├── layout/                             # Shell Layout, Sidebar, TopHeader
+│   ├── api/                                # HTTP Client, Mock Engine, Token Storage
+│   └── utils/                              # Shared Utilities (Haversine Distance)
+├── App.jsx                                 # Module Route Integration
+├── main.jsx                                # Application Entry Point
+├── setupTests.js                           # Test Environment Setup
+└── styles.css                              # Design Tokens & Keyframe Animations
 ```
 
 ---
 
-## 3. UI/UX & Design Tokens
-- **Primary Color:** Muted Indigo (`#6366f1` / `#4f46e5`) used for main interactive buttons.
+## 2. Module Boundaries & Responsibilities
+
+### `modules/auth`
+- **Responsibility:** Manages credentials authentication, JWT token storage, decoding sub/role claims, and session termination.
+- **Exports:** `AuthProvider`, `useAuth`, `LoginScreen`.
+
+### `modules/attendance`
+- **Responsibility:** Spatial geofence validation for Rixos Radamis (`27.9158, 34.33`, 300m radius), distance calculations, GPS error handling, and interactive Leaflet map rendering.
+- **Exports:** `CheckInModal`, `WORK_ZONE`, `getDistanceMeters`.
+
+### `modules/ledger`
+- **Responsibility:** Tracks Green Points (early rewards), Red Penalties (late 10-12 PM: 250 EGP), and Black Penalties (post 12 PM: 1,000 EGP). Encapsulates 1-to-1 red cancellation and 5-to-1 black cancellation logic.
+- **Exports:** `EmployeeDashboard`.
+
+### `modules/rewards`
+- **Responsibility:** Handles 30-point green milestone requests, payout method selection (InstaPay or Vodafone Cash), and financial valuation (40 USD / 2,200 EGP).
+- **Exports:** `RewardModal`.
+
+### `modules/leave`
+- **Responsibility:** Provides scheduling for planned absences, date range constraint validation (`end_date >= start_date`), and approval status tracking to waive severe Black penalties.
+- **Exports:** `LeaveManagement`.
+
+### `modules/owner`
+- **Responsibility:** Master oversight panel for resort owners: live balance audits, manual point adjustments with mandatory audit justification, leave approvals, and reward payout approvals.
+- **Exports:** `OwnerDashboard`.
+
+### `shared/` (Shared Kernel)
+- `shared/ui`: Reusable design system primitives following atomic UI guidelines.
+- `shared/layout`: Persistent sidebar navigation, top header, and role-based route protection.
+- `shared/api`: Centralized API client with automatic token attachment, 401 interception, and `VITE_MOCK` simulation.
+- `shared/utils`: Geo-spatial calculations (Haversine formula).
+
+---
+
+## 3. UI/UX Design Tokens
+- **Primary Color:** Muted Indigo (`#6366f1` / `#4f46e5`).
 - **Semantic Colors:**
-  - **Green (`#16a34a`):** Positive actions, early check-in rewards (07:00 – 08:00 AM), reward milestone progress.
-  - **Red (`#dc2626`):** Late arrival penalty (10:00 – 12:00 PM), active financial deductions (250 EGP).
-  - **Black (`#111827`):** Severe absence delay (post 12:00 PM), full-day penalty (1,000 EGP).
-- **Cards & Elevation:** 12px border radius, subtle drop shadows (`box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1)`).
-- **Responsive Layout:** Sidebar stacks horizontally into an adaptive navigation bar on viewports under 768px; data tables enable horizontal touch-scrolling.
+  - **Green (`#16a34a`):** Positive actions, 07:00–08:00 AM check-ins, reward progress.
+  - **Red (`#dc2626`):** Penalties, 10:00–12:00 PM check-ins, 250 EGP deductions.
+  - **Black (`#111827`):** Full-day absence penalties, 1,000 EGP deductions.
+- **Animations:**
+  - Progress bar fill: 500ms ease-out transition.
+  - Modal reveal: 250ms scale-up and fade-in keyframes.
+  - Toggle switches: 150ms linear transition.
 
 ---
 
-## 4. Frontend API Contract (Base: `/api`)
-| Method | Endpoint | Description | Request Body / Params | Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/login` | Authenticate user & issue JWT | `{ username, password }` | Public |
-| `GET` | `/me/summary` | Retrieve current point balances & deductions | — | Employee |
-| `POST` | `/checkin` | Validate spatial coords & record attendance | `{ lat, lng }` | Employee |
-| `POST` | `/points/cancel-red` | Redeem 1 Green point to cancel 1 Red penalty | — | Employee |
-| `POST` | `/points/cancel-black` | Redeem 5 Green points to cancel 1 Black penalty | — | Employee |
-| `POST` | `/leave` | Submit scheduled leave request | `{ start_date, end_date, reason }` | Employee |
-| `GET` | `/leave` | Fetch photographer's leave request history | — | Employee |
-| `POST` | `/rewards` | Submit 30-pt milestone reward claim | `{ payout_method, number }` | Employee |
-| `GET` | `/owner/users` | List all photographers, points, and pending queues | — | Owner |
-| `POST` | `/owner/adjust` | Manually adjust an employee's point balance | `{ user_id, color, delta, reason }` | Owner |
-| `POST` | `/owner/leave/:id/approve` | Approve leave request & waive penalties | — | Owner |
-| `POST` | `/owner/leave/:id/reject` | Reject leave request | — | Owner |
-| `POST` | `/owner/rewards/:id/approve` | Approve milestone cash payout | — | Owner |
-
----
-
-## 5. Quality Assurance & Verification Results
-- **Full Suite Execution:** Vitest 2.1.9 across all 10 component and domain test suites:
-  - `src/auth.test.jsx`: 3 passed
-  - `src/components/ui.test.jsx`: 10 passed
-  - `src/components/CheckInModal.test.jsx`: 4 passed
-  - `src/components/RewardModal.test.jsx`: 4 passed
-  - `src/components/Layout.test.jsx`: 3 passed
-  - `src/screens/Login.test.jsx`: 2 passed
-  - `src/screens/EmployeeDashboard.test.jsx`: 4 passed
-  - `src/screens/LeaveManagement.test.jsx`: 4 passed
-  - `src/screens/OwnerDashboard.test.jsx`: 4 passed
-  - `src/mock.test.js`: 9 passed
-  - **Total: 47 passed / 47 tests (100% success rate)**
+## 4. Quality Assurance & Verification
+- **Test Suite Execution:** 47 tests across 10 modular test suites in Vitest:
+  - `src/modules/auth/auth.test.jsx`: 3 tests
+  - `src/modules/auth/screens/LoginScreen.test.jsx`: 2 tests
+  - `src/shared/ui/ui.test.jsx`: 10 tests
+  - `src/shared/layout/Layout.test.jsx`: 3 tests
+  - `src/modules/attendance/components/CheckInModal.test.jsx`: 4 tests
+  - `src/modules/rewards/components/RewardModal.test.jsx`: 4 tests
+  - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 4 tests
+  - `src/modules/leave/screens/LeaveManagement.test.jsx`: 4 tests
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 4 tests
+  - `src/shared/api/mock.test.js`: 9 tests
+  - **Result: 47 passed / 47 tests (100% success rate)**
 - **Static Analysis:** ESLint 9.x executed on `src/` with zero warnings or errors.
-- **Production Compilation:** Vite 5.4.x bundle completed cleanly in `dist/`.
+- **Production Build:** Vite 5.4.x bundle completed cleanly in `dist/`.

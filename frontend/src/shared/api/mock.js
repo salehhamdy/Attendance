@@ -11,10 +11,26 @@ export const WORK_ZONE = {
   radius: 300, // meters
 };
 
+const initialUsers = [
+  { id: 1, name: 'rico', username: 'rico', role: 'employee', green: 27, red: 1, black: 0 },
+  { id: 2, name: 'sara', username: 'sara', role: 'employee', green: 10, red: 0, black: 1 },
+  { id: 3, name: 'ahmed', username: 'ahmed', role: 'employee', green: 30, red: 0, black: 0 },
+];
+
+const initialSettings = {
+  red_penalty_egp: 250,
+  black_penalty_egp: 1000,
+  early_window_start: '07:00',
+  early_window_end: '08:00',
+  normal_window_end: '10:00',
+  late_window_end: '12:00',
+};
+
 const state = {
   green: 27,
   red: 1,
   black: 0,
+  settings: { ...initialSettings },
   leave: [
     {
       id: 1,
@@ -47,19 +63,25 @@ const state = {
       status: 'pending',
     },
   ],
-  users: [
-    { id: 1, name: 'rico', username: 'rico', green: 27, red: 1, black: 0 },
-    { id: 2, name: 'sara', username: 'sara', green: 10, red: 0, black: 1 },
-    { id: 3, name: 'ahmed', username: 'ahmed', green: 30, red: 0, black: 0 },
-  ],
+  users: structuredClone(initialUsers),
 };
+
+function timeToMinutes(timeStr) {
+  const [h, m] = String(timeStr || '00:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
 
 const summary = () => ({
   green: state.green,
   red: state.red,
   black: state.black,
-  deductions_egp: state.red * 250 + state.black * 1000,
+  red_penalty_egp: state.settings.red_penalty_egp,
+  black_penalty_egp: state.settings.black_penalty_egp,
+  deductions_egp:
+    state.red * state.settings.red_penalty_egp +
+    state.black * state.settings.black_penalty_egp,
   progress: Math.min(state.green, 30),
+  settings: structuredClone(state.settings),
 });
 
 export const mockApi = {
@@ -88,27 +110,33 @@ export const mockApi = {
       );
     }
 
-    // Determine point allocation based on Egypt / Cairo time
+    // Determine point allocation based on Egypt / Cairo time & configured time windows
     const now = new Date();
-    const hours = now.getHours();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+
+    const earlyStart = timeToMinutes(state.settings.early_window_start);
+    const earlyEnd = timeToMinutes(state.settings.early_window_end);
+    const normalEnd = timeToMinutes(state.settings.normal_window_end);
+    const lateEnd = timeToMinutes(state.settings.late_window_end);
+
     let pointMsg = 'Check-in recorded successfully';
     let type = 'normal';
 
-    if (hours >= 7 && hours < 8) {
+    if (currentMins >= earlyStart && currentMins < earlyEnd) {
       state.green += 1;
       type = 'green';
-      pointMsg = 'Early check-in (07:00-08:00): +1 Green Point awarded!';
-    } else if (hours >= 8 && hours < 10) {
+      pointMsg = `Early check-in (${state.settings.early_window_start} - ${state.settings.early_window_end}): +1 Green Point awarded!`;
+    } else if (currentMins >= earlyEnd && currentMins < normalEnd) {
       type = 'normal';
-      pointMsg = 'On-time check-in (08:00-10:00): Attendance recorded.';
-    } else if (hours >= 10 && hours < 12) {
+      pointMsg = `On-time check-in (${state.settings.early_window_end} - ${state.settings.normal_window_end}): Attendance recorded.`;
+    } else if (currentMins >= normalEnd && currentMins < lateEnd) {
       state.red += 1;
       type = 'red';
-      pointMsg = 'Late check-in (10:00-12:00): +1 Red Penalty assigned (250 EGP).';
-    } else if (hours >= 12) {
+      pointMsg = `Late check-in (${state.settings.normal_window_end} - ${state.settings.late_window_end}): +1 Red Penalty assigned (${state.settings.red_penalty_egp} EGP).`;
+    } else if (currentMins >= lateEnd) {
       state.black += 1;
       type = 'black';
-      pointMsg = 'Severe delay / absent (post 12:00): +1 Black Penalty assigned (1000 EGP).';
+      pointMsg = `Severe delay / absent (post ${state.settings.late_window_end}): +1 Black Penalty assigned (${state.settings.black_penalty_egp} EGP).`;
     } else {
       state.green += 1;
       type = 'green';
@@ -187,6 +215,7 @@ export const mockApi = {
       users: state.users,
       leave_requests: state.leave,
       reward_requests: state.rewards,
+      settings: state.settings,
     }),
 
   ownerAdjust: ({ user_id, color, delta, reason }) => {
@@ -218,10 +247,67 @@ export const mockApi = {
     return delay({ success: true, reward: r });
   },
 
+  // Owner System Configuration & Policy Controls
+  getSettings: () => delay(structuredClone(state.settings)),
+
+  updateSettings: (newSettings) => {
+    if (!newSettings) return fail('Invalid settings payload');
+    const red =
+      newSettings.red_penalty_egp !== undefined
+        ? Number(newSettings.red_penalty_egp)
+        : state.settings.red_penalty_egp;
+    const black =
+      newSettings.black_penalty_egp !== undefined
+        ? Number(newSettings.black_penalty_egp)
+        : state.settings.black_penalty_egp;
+
+    if (isNaN(red) || red < 0) return fail('Red penalty must be a non-negative number');
+    if (isNaN(black) || black < 0) return fail('Black penalty must be a non-negative number');
+
+    state.settings = {
+      ...state.settings,
+      ...newSettings,
+      red_penalty_egp: red,
+      black_penalty_egp: black,
+    };
+    return delay(structuredClone(state.settings));
+  },
+
+  // Owner User Management Controls
+  addUser: ({ name, username, role = 'employee' }) => {
+    if (!name || !username) return fail('Name and username are required');
+    const exists = state.users.some(
+      (u) => u.username.toLowerCase() === username.trim().toLowerCase()
+    );
+    if (exists) return fail(`Username "${username}" already exists`);
+
+    const newUser = {
+      id: Date.now(),
+      name: name.trim(),
+      username: username.trim(),
+      role: role || 'employee',
+      green: 0,
+      red: 0,
+      black: 0,
+    };
+    state.users.push(newUser);
+    return delay(newUser);
+  },
+
+  removeUser: (userId) => {
+    const idx = state.users.findIndex((u) => u.id === Number(userId));
+    if (idx === -1) return fail('User not found');
+    const [removed] = state.users.splice(idx, 1);
+    return delay({ success: true, removed });
+  },
+
   __resetState: () => {
     state.green = 27;
     state.red = 1;
     state.black = 0;
+    state.settings = { ...initialSettings };
+    state.users = structuredClone(initialUsers);
   },
 };
+
 export { haversineDistance };

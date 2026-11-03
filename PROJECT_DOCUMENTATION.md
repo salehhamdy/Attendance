@@ -19,7 +19,7 @@ frontend/src/
 │   │   ├── services/geofence.js            # Work zone definitions & spatial calculations
 │   │   └── index.js                        # Module Public API
 │   ├── ledger/                             # [Bounded Context] Attendance points & penalties
-│   │   ├── screens/EmployeeDashboard.jsx   # Metrics, 30-pt progress bar, penalty cancellation
+│   │   ├── screens/EmployeeDashboard.jsx   # Metrics, 30-pt progress bar, dynamic penalty calculations
 │   │   ├── screens/EmployeeDashboard.test.jsx
 │   │   └── index.js                        # Module Public API
 │   ├── rewards/                            # [Bounded Context] Milestone cash rewards
@@ -30,8 +30,8 @@ frontend/src/
 │   │   ├── screens/LeaveManagement.jsx     # Leave request form & history table
 │   │   ├── screens/LeaveManagement.test.jsx
 │   │   └── index.js                        # Module Public API
-│   └── owner/                              # [Bounded Context] Administrative governance
-│       ├── screens/OwnerDashboard.jsx      # Photographers ledger, points adjustment, approvals
+│   └── owner/                              # [Bounded Context] Administrative governance & policy
+│       ├── screens/OwnerDashboard.jsx      # Roster management, policy config, points adjustment, approvals
 │       ├── screens/OwnerDashboard.test.jsx
 │       └── index.js                        # Module Public API
 ├── shared/                                 # Shared Kernel
@@ -58,7 +58,7 @@ frontend/src/
 - **Exports:** `CheckInModal`, `WORK_ZONE`, `getDistanceMeters`.
 
 ### `modules/ledger`
-- **Responsibility:** Tracks Green Points (early rewards), Red Penalties (late 10-12 PM: 250 EGP), and Black Penalties (post 12 PM: 1,000 EGP). Encapsulates 1-to-1 red cancellation and 5-to-1 black cancellation logic.
+- **Responsibility:** Tracks Green Points (early rewards), Red Penalties (late arrival deduction), and Black Penalties (absence deduction). Recalculates deductions dynamically based on owner penalty values (`red_penalty_egp`, `black_penalty_egp`). Encapsulates 1-to-1 red cancellation and 5-to-1 black cancellation logic.
 - **Exports:** `EmployeeDashboard`.
 
 ### `modules/rewards`
@@ -70,32 +70,38 @@ frontend/src/
 - **Exports:** `LeaveManagement`.
 
 ### `modules/owner`
-- **Responsibility:** Master oversight panel for resort owners: live balance audits, manual point adjustments with mandatory audit justification, leave approvals, and reward payout approvals.
+- **Responsibility:** Master oversight panel for resort owners:
+  - **Penalty Rate Control:** Dynamically configure Red Penalty value (EGP) and Black Penalty value (EGP).
+  - **Arrival Time Control:** Dynamically configure early arrival window (`early_window_start`, `early_window_end`), on-time deadline (`normal_window_end`), and severe delay cutoff (`late_window_end`).
+  - **User Roster Management:** Add new photographer/owner accounts and remove existing users.
+  - **Auditing & Approvals:** Manual point adjustments with mandatory justification, leave request approvals, and reward payout authorizations.
 - **Exports:** `OwnerDashboard`.
 
 ### `shared/` (Shared Kernel)
 - `shared/ui`: Reusable design system primitives following atomic UI guidelines.
 - `shared/layout`: Persistent sidebar navigation, top header, and role-based route protection.
-- `shared/api`: Centralized API client with automatic token attachment, 401 interception, and `VITE_MOCK` simulation.
+- `shared/api`: Centralized API client with automatic token attachment, 401 interception, and `VITE_MOCK` simulation with dynamic settings and user management.
 - `shared/utils`: Geo-spatial calculations (Haversine formula).
 
 ---
 
-## 3. UI/UX Design Tokens
-- **Primary Color:** Muted Indigo (`#6366f1` / `#4f46e5`).
-- **Semantic Colors:**
-  - **Green (`#16a34a`):** Positive actions, 07:00–08:00 AM check-ins, reward progress.
-  - **Red (`#dc2626`):** Penalties, 10:00–12:00 PM check-ins, 250 EGP deductions.
-  - **Black (`#111827`):** Full-day absence penalties, 1,000 EGP deductions.
-- **Animations:**
-  - Progress bar fill: 500ms ease-out transition.
-  - Modal reveal: 250ms scale-up and fade-in keyframes.
-  - Toggle switches: 150ms linear transition.
+## 3. Extended Owner API Contract (Base: `/api`)
+| Method | Endpoint | Description | Request Body / Params | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/owner/settings` | Retrieve active penalty amounts and arrival time windows | — | Owner |
+| `POST` | `/owner/settings` | Update penalty amounts (EGP) and arrival shift windows | `{ red_penalty_egp, black_penalty_egp, early_window_start, early_window_end, normal_window_end, late_window_end }` | Owner |
+| `POST` | `/owner/users` | Add new user account | `{ name, username, role }` | Owner |
+| `DELETE` | `/owner/users/:id` | Remove user account from system | — | Owner |
+| `GET` | `/owner/users` | List all photographers, points, and pending queues | — | Owner |
+| `POST` | `/owner/adjust` | Manually adjust an employee's point balance | `{ user_id, color, delta, reason }` | Owner |
+| `POST` | `/owner/leave/:id/approve` | Approve leave request & waive penalties | — | Owner |
+| `POST` | `/owner/leave/:id/reject` | Reject leave request | — | Owner |
+| `POST` | `/owner/rewards/:id/approve` | Approve milestone cash payout | — | Owner |
 
 ---
 
 ## 4. Quality Assurance & Verification
-- **Test Suite Execution:** 47 tests across 10 modular test suites in Vitest:
+- **Test Suite Execution:** 53 tests across 10 modular test suites in Vitest:
   - `src/modules/auth/auth.test.jsx`: 3 tests
   - `src/modules/auth/screens/LoginScreen.test.jsx`: 2 tests
   - `src/shared/ui/ui.test.jsx`: 10 tests
@@ -104,8 +110,8 @@ frontend/src/
   - `src/modules/rewards/components/RewardModal.test.jsx`: 4 tests
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: 4 tests
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: 4 tests
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 4 tests
-  - `src/shared/api/mock.test.js`: 9 tests
-  - **Result: 47 passed / 47 tests (100% success rate)**
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: 7 tests (includes penalty settings, arrival windows, user addition, user removal)
+  - `src/shared/api/mock.test.js`: 12 tests (includes dynamic penalties, window configurations, user CRUD)
+  - **Result: 53 passed / 53 tests (100% success rate)**
 - **Static Analysis:** ESLint 9.x executed on `src/` with zero warnings or errors.
 - **Production Build:** Vite 5.4.x bundle completed cleanly in `dist/`.

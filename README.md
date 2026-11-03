@@ -25,7 +25,7 @@ frontend/src/
 │   ├── leave/                      # Leave Requests & Absence Waiver
 │   │   ├── screens/LeaveManagement.jsx
 │   │   └── index.js
-│   └── owner/                      # Owner Administration & Approval Queues
+│   └── owner/                      # Owner Administration, Policy Config & User Management
 │       ├── screens/OwnerDashboard.jsx
 │       └── index.js
 ├── shared/                         # Domain-Agnostic Shared Kernel
@@ -40,7 +40,7 @@ frontend/src/
 ```
 
 ## System Status
-- **Frontend (Modular Monolith):** Fully refactored and verified with **47 unit and integration tests across 10 suites** (100% passing), ESLint clean (zero warnings), Vite production build verified.
+- **Frontend (Modular Monolith):** Fully implemented and verified with **53 unit and integration tests across 10 suites** (100% passing), ESLint clean (zero warnings), Vite production build verified.
 - **Backend (FastAPI + PostgreSQL):** Planned. The frontend includes a comprehensive in-memory mock system (`VITE_MOCK=1`) for standalone execution, demonstration, and automated testing.
 
 ## Quick Start (Frontend)
@@ -67,27 +67,39 @@ npm run build
 
 ## Domain Rules & Economics
 
-### 1. Check-In Time Windows (Africa/Cairo)
-- **07:00 – 08:00 AM:** Early arrival bonus (+1 Green Point).
-- **08:00 – 10:00 AM:** On-time attendance (Normal, zero points).
-- **10:00 – 12:00 PM:** Late arrival (+1 Red Penalty = 250 EGP deduction).
-- **Post 12:00 PM:** Full-day absence delay (+1 Black Penalty = 1,000 EGP deduction).
+### 1. Configurable Check-In Time Windows (Africa/Cairo)
+The resort owner can configure arrival shift windows dynamically from the Owner Administration Panel:
+- **Early Window (Default: 07:00 – 08:00 AM):** Early arrival bonus (+1 Green Point).
+- **On-Time Window (Default: 08:00 – 10:00 AM):** On-time attendance (Normal, zero points).
+- **Late Window (Default: 10:00 – 12:00 PM):** Late arrival (+1 Red Penalty = Configured EGP deduction).
+- **Absence Cutoff (Default: Post 12:00 PM):** Full-day absence delay (+1 Black Penalty = Configured EGP deduction).
 
-### 2. Point Trading Mechanics
-- **Cancel Red Penalty:** 1 Green Point cancels 1 Red Penalty (saves 250 EGP).
-- **Cancel Black Penalty:** 5 Green Points cancel 1 Black Penalty (saves 1,000 EGP).
+### 2. Configurable Financial Penalty Values
+The resort owner can dynamically change penalty amounts:
+- **Red Penalty Value (Default: 250 EGP):** Late check-in penalty amount.
+- **Black Penalty Value (Default: 1,000 EGP):** Severe absence delay penalty amount.
+- **Dynamic Deductions:** The photographer dashboard recalculates monthly attendance deductions and point-trading savings immediately based on configured penalty values.
+
+### 3. User Management
+The owner can manage the photographer roster directly from the panel:
+- **Add User:** Create new photographer or owner accounts (`name`, `username`, `role`).
+- **Remove User:** Delete accounts from the roster with instant balance table updates.
+
+### 4. Point Trading Mechanics
+- **Cancel Red Penalty:** 1 Green Point cancels 1 Red Penalty (saves current Red Penalty EGP).
+- **Cancel Black Penalty:** 5 Green Points cancel 1 Black Penalty (saves current Black Penalty EGP).
 - **Green Reward Milestone:** Accumulating 30 Green Points unlocks a cash reward claim worth **40 USD / 2,200 EGP** via InstaPay or Vodafone Cash.
 
-### 3. Geofencing
+### 5. Geofencing
 - **Designated Work Zone:** Rixos Radamis (Sharm El-Sheikh), coordinates `27.9158, 34.33`, 300-meter radius.
 - **Spatial Validation:** Real-time Haversine distance calculation and boundary proximity status indicators with Leaflet interactive map.
 
-### 4. Leave Exemption
+### 6. Leave Exemption
 - Photographers can submit leave requests with date validation and audit reasons.
 - Once approved by the owner, absence penalties (Black Points) are waived for the specified duration.
 
 ## Test Suite
-- Total Tests: **47 passing** across 10 modular test suites.
+- Total Tests: **53 passing** across 10 modular test suites.
 - Coverage:
   - `src/modules/auth/auth.test.jsx`: Authentication provider, session lifecycle, token parsing (3 tests).
   - `src/modules/auth/screens/LoginScreen.test.jsx`: Login credentials validation and error states (2 tests).
@@ -97,5 +109,5 @@ npm run build
   - `src/modules/rewards/components/RewardModal.test.jsx`: Reward payout selector, validation, and submission (4 tests).
   - `src/modules/ledger/screens/EmployeeDashboard.test.jsx`: Real-time stats, penalty calculations, 30-pt progress bar, and point exchange toggles (4 tests).
   - `src/modules/leave/screens/LeaveManagement.test.jsx`: Date range validation, request submission, and history table (4 tests).
-  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Photographer point balances, financial deductions, point adjustment form, and approval queues (4 tests).
-  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, and geofencing (9 tests).
+  - `src/modules/owner/screens/OwnerDashboard.test.jsx`: Photographer point balances, dynamic penalty config, arrival time window adjustments, user addition/removal, and approval queues (7 tests).
+  - `src/shared/api/mock.test.js`: In-memory business logic verification for point trading, deductions, dynamic penalty updates, arrival windows, user management, and geofencing (12 tests).

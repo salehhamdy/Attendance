@@ -10,6 +10,10 @@ vi.mock('../../../shared/api/index.js', () => ({
     approveLeave: vi.fn(),
     rejectLeave: vi.fn(),
     approveReward: vi.fn(),
+    getSettings: vi.fn(),
+    updateSettings: vi.fn(),
+    addUser: vi.fn(),
+    removeUser: vi.fn(),
   },
 }));
 
@@ -18,9 +22,17 @@ import { OwnerDashboard } from '../index.js';
 
 const mockOwnerData = {
   users: [
-    { id: 1, name: 'rico', username: 'rico', green: 27, red: 1, black: 0 },
-    { id: 2, name: 'sara', username: 'sara', green: 10, red: 0, black: 1 },
+    { id: 1, name: 'rico', username: 'rico', role: 'employee', green: 27, red: 1, black: 0 },
+    { id: 2, name: 'sara', username: 'sara', role: 'employee', green: 10, red: 0, black: 1 },
   ],
+  settings: {
+    red_penalty_egp: 250,
+    black_penalty_egp: 1000,
+    early_window_start: '07:00',
+    early_window_end: '08:00',
+    normal_window_end: '10:00',
+    late_window_end: '12:00',
+  },
   leave_requests: [
     {
       id: 10,
@@ -52,6 +64,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
 
   it('renders photographer stats, points and deduction calculations', async () => {
     api.ownerUsers.mockResolvedValueOnce(mockOwnerData);
+    api.getSettings.mockResolvedValueOnce(mockOwnerData.settings);
     render(<OwnerDashboard />);
 
     const ricoElements = await screen.findAllByText('rico');
@@ -63,8 +76,83 @@ describe('Owner Module - OwnerDashboard Screen', () => {
     expect(screen.getByText('250 EGP')).toBeInTheDocument();
   });
 
+  it('allows owner to configure penalty values and arrival time windows', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.updateSettings.mockResolvedValueOnce({
+      ...mockOwnerData.settings,
+      red_penalty_egp: 350,
+      early_window_start: '06:45',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const redPenaltyInput = screen.getByLabelText(/Red Penalty Value/i);
+    await userEvent.clear(redPenaltyInput);
+    await userEvent.type(redPenaltyInput, '350');
+
+    const earlyStartInput = screen.getByLabelText(/Early Arrival Bonus Start/i);
+    await userEvent.clear(earlyStartInput);
+    await userEvent.type(earlyStartInput, '06:45');
+
+    const saveBtn = screen.getByRole('button', { name: /Save Attendance Rules & Penalties/i });
+    await userEvent.click(saveBtn);
+
+    expect(api.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        red_penalty_egp: '350',
+        early_window_start: '06:45',
+      })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(/new arrival times & penalty values are now in effect/i);
+  });
+
+  it('allows owner to add a new photographer account', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.addUser.mockResolvedValueOnce({
+      id: 3,
+      name: 'Tarek Hamdy',
+      username: 'tarek',
+      role: 'employee',
+    });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    await userEvent.type(screen.getByPlaceholderText(/Full Name/i), 'Tarek Hamdy');
+    await userEvent.type(screen.getByPlaceholderText(/Username/i), 'tarek');
+
+    const addBtn = screen.getByRole('button', { name: /Add User Account/i });
+    await userEvent.click(addBtn);
+
+    expect(api.addUser).toHaveBeenCalledWith({
+      name: 'Tarek Hamdy',
+      username: 'tarek',
+      role: 'employee',
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent(/Photographer "Tarek Hamdy" added successfully/i);
+  });
+
+  it('allows owner to remove a user account', async () => {
+    api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
+    api.removeUser.mockResolvedValueOnce({ success: true });
+
+    render(<OwnerDashboard />);
+    await screen.findAllByText('rico');
+
+    const removeBtn = screen.getByRole('button', { name: /Remove user sara/i });
+    await userEvent.click(removeBtn);
+
+    expect(api.removeUser).toHaveBeenCalledWith(2);
+    expect(await screen.findByRole('status')).toHaveTextContent(/removed from the system/i);
+  });
+
   it('allows owner to adjust points with an audit reason', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
     api.ownerAdjust.mockResolvedValueOnce({ success: true });
 
     render(<OwnerDashboard />);
@@ -89,6 +177,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
 
   it('processes leave approval and rejection', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
     api.approveLeave.mockResolvedValueOnce({ success: true });
     api.rejectLeave.mockResolvedValueOnce({ success: true });
 
@@ -107,6 +196,7 @@ describe('Owner Module - OwnerDashboard Screen', () => {
 
   it('processes reward payout approval', async () => {
     api.ownerUsers.mockResolvedValue(mockOwnerData);
+    api.getSettings.mockResolvedValue(mockOwnerData.settings);
     api.approveReward.mockResolvedValueOnce({ success: true });
 
     render(<OwnerDashboard />);

@@ -35,3 +35,4 @@ describe('Auth Module - LoginScreen', () => {
     expect(screen.getByRole('button', { name: 'Login' })).toBeEnabled();
   });
 });
+

@@ -74,3 +74,4 @@ export function RewardModal({ onClose, onDone }) {
 }
 
 export default RewardModal;
+

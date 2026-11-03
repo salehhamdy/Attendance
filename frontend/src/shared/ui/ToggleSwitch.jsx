@@ -13,3 +13,4 @@ export const ToggleSwitch = ({ checked, onChange, disabled, label }) => (
     <span className="knob" />
   </button>
 );
+

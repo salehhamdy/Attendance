@@ -46,7 +46,10 @@ export function EmployeeDashboard() {
 
   const progress = Number.isFinite(s.progress) ? s.progress : s.green;
   const pct = Math.min(100, (progress / GOAL) * 100);
-  const d = s.deductions_egp ?? s.red * 250 + s.black * 1000;
+
+  const redPenaltyVal = Number(s.red_penalty_egp) || 250;
+  const blackPenaltyVal = Number(s.black_penalty_egp) || 1000;
+  const d = s.deductions_egp ?? s.red * redPenaltyVal + s.black * blackPenaltyVal;
 
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -79,13 +82,13 @@ export function EmployeeDashboard() {
           variant="red"
           title="Red Penalties"
           value={s.red}
-          sub={`Red: ${s.red} x 250 EGP = ${s.red * 250} EGP`}
+          sub={`Red: ${s.red} x ${redPenaltyVal} EGP = ${s.red * redPenaltyVal} EGP`}
         />
         <StatCard
           variant="black"
           title="Black Penalties"
           value={s.black}
-          sub={`Black: ${s.black} x 1000 EGP = ${s.black * 1000} EGP`}
+          sub={`Black: ${s.black} x ${blackPenaltyVal} EGP = ${s.black * blackPenaltyVal} EGP`}
         />
       </div>
 
@@ -121,33 +124,33 @@ export function EmployeeDashboard() {
           <p className="muted mb-sm">
             {d === 0
               ? 'Zero deductions! Attendance in good standing.'
-              : `Active deductions: ${s.red} Red (${s.red * 250} EGP) + ${s.black} Black (${s.black * 1000} EGP)`}
+              : `Active deductions: ${s.red} Red (${s.red * redPenaltyVal} EGP) + ${s.black} Black (${s.black * blackPenaltyVal} EGP)`}
           </p>
 
           <div className="toggles">
             <label className="toggle-item">
               <span>
                 Use 1 Green Point to remove 1 Red Penalty
-                <small className="block muted">Saves 250 EGP deduction</small>
+                <small className="block muted">Saves {redPenaltyVal} EGP deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel red penalty"
                 checked={false}
                 disabled={s.green < 1 || s.red < 1}
-                onChange={() => act(api.cancelRed, '1 Red Penalty cancelled (-250 EGP deduction)')}
+                onChange={() => act(api.cancelRed, `1 Red Penalty cancelled (-${redPenaltyVal} EGP deduction)`)}
               />
             </label>
 
             <label className="toggle-item">
               <span>
                 Use 5 Green Points to remove 1 Black Penalty
-                <small className="block muted">Saves 1000 EGP deduction</small>
+                <small className="block muted">Saves {blackPenaltyVal} EGP deduction</small>
               </span>
               <ToggleSwitch
                 label="cancel black penalty"
                 checked={false}
                 disabled={s.green < 5 || s.black < 1}
-                onChange={() => act(api.cancelBlack, '1 Black Penalty cancelled (-1000 EGP deduction)')}
+                onChange={() => act(api.cancelBlack, `1 Black Penalty cancelled (-${blackPenaltyVal} EGP deduction)`)}
               />
             </label>
           </div>

@@ -64,4 +64,8 @@ export const realApi = {
   approveLeave: (id) => request('POST', `/owner/leave/${id}/approve`),
   rejectLeave: (id) => request('POST', `/owner/leave/${id}/reject`),
   approveReward: (id) => request('POST', `/owner/rewards/${id}/approve`),
+  getSettings: () => request('GET', '/owner/settings'),
+  updateSettings: (s) => request('POST', '/owner/settings', s),
+  addUser: (u) => request('POST', '/owner/users', u),
+  removeUser: (id) => request('DELETE', `/owner/users/${id}`),
 };

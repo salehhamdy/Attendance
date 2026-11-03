@@ -6,7 +6,7 @@ describe('Shared API Mock Module Rules', () => {
     mockApi.__resetState();
   });
 
-  it('computes deductions as 250 per red and 1000 per black', async () => {
+  it('computes deductions as 250 per red and 1000 per black by default', async () => {
     const s = await mockApi.summary();
     expect(s.deductions_egp).toBe(s.red * 250 + s.black * 1000);
   });
@@ -74,5 +74,56 @@ describe('Shared API Mock Module Rules', () => {
       reason: 'Overtime photography shoot',
     });
     expect(res.user.green).toBeGreaterThanOrEqual(30);
+  });
+
+  it('allows owner to change penalty values and updates deductions dynamically', async () => {
+    const updated = await mockApi.updateSettings({
+      red_penalty_egp: 300,
+      black_penalty_egp: 1200,
+    });
+    expect(updated.red_penalty_egp).toBe(300);
+    expect(updated.black_penalty_egp).toBe(1200);
+
+    // Summary calculation should now reflect new penalty values
+    const s = await mockApi.summary();
+    expect(s.red_penalty_egp).toBe(300);
+    expect(s.black_penalty_egp).toBe(1200);
+    expect(s.deductions_egp).toBe(s.red * 300 + s.black * 1200);
+  });
+
+  it('allows owner to change arrival time windows', async () => {
+    const updated = await mockApi.updateSettings({
+      early_window_start: '06:30',
+      early_window_end: '07:30',
+      normal_window_end: '09:30',
+      late_window_end: '11:30',
+    });
+    expect(updated.early_window_start).toBe('06:30');
+    expect(updated.early_window_end).toBe('07:30');
+    expect(updated.normal_window_end).toBe('09:30');
+    expect(updated.late_window_end).toBe('11:30');
+  });
+
+  it('allows owner to add new users and remove existing users', async () => {
+    const newUser = await mockApi.addUser({
+      name: 'Youssef Photo',
+      username: 'youssef',
+      role: 'employee',
+    });
+    expect(newUser.id).toBeDefined();
+    expect(newUser.username).toBe('youssef');
+
+    const usersData = await mockApi.ownerUsers();
+    expect(usersData.users.some((u) => u.username === 'youssef')).toBe(true);
+
+    // Cannot add duplicate username
+    await expect(
+      mockApi.addUser({ name: 'Another', username: 'youssef' })
+    ).rejects.toThrow(/already exists/i);
+
+    // Remove user
+    await mockApi.removeUser(newUser.id);
+    const afterDelete = await mockApi.ownerUsers();
+    expect(afterDelete.users.some((u) => u.username === 'youssef')).toBe(false);
   });
 });

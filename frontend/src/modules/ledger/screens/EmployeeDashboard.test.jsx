@@ -63,3 +63,4 @@ describe('Ledger Module - EmployeeDashboard Screen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('boom');
   });
 });
+

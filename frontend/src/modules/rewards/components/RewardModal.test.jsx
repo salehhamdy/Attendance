@@ -64,3 +64,4 @@ describe('Rewards Module - RewardModal Component', () => {
     expect(screen.getByRole('button', { name: /Submit Reward Request/i })).toBeEnabled();
   });
 });
+

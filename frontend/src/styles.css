@@ -284,6 +284,15 @@ h3 {
   background: #f1f5f9;
 }
 
+.btn-danger {
+  background: var(--red);
+  color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
 /* Toggle Switch with ~150ms linear animation */
 .toggles {
   display: flex;

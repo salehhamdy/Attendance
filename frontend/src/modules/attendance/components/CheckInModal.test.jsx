@@ -79,3 +79,4 @@ describe('Attendance Module - CheckInModal Component', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Outside geofence zone boundary');
   });
 });
+

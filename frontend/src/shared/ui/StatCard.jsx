@@ -8,3 +8,4 @@ export const StatCard = ({ variant, title, value, sub }) => (
     {sub && <div className="stat-sub">{sub}</div>}
   </Card>
 );
+

@@ -70,3 +70,4 @@ describe('Layout Component', () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 });
+

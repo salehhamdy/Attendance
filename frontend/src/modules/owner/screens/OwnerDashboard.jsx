@@ -8,14 +8,33 @@ export function OwnerDashboard() {
   const [rewards, setRewards] = useState([]);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const [adj, setAdj] = useState({ user_id: '', color: 'green', delta: 1, reason: '' });
   const [loading, setLoading] = useState(true);
+
+  // Point Adjustment state
+  const [adj, setAdj] = useState({ user_id: '', color: 'green', delta: 1, reason: '' });
+
+  // System Configuration (Penalties & Arrival time windows)
+  const [settings, setSettings] = useState({
+    red_penalty_egp: 250,
+    black_penalty_egp: 1000,
+    early_window_start: '07:00',
+    early_window_end: '08:00',
+    normal_window_end: '10:00',
+    late_window_end: '12:00',
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // User Management state
+  const [newUser, setNewUser] = useState({ name: '', username: '', role: 'employee' });
+  const [addingUser, setAddingUser] = useState(false);
 
   const load = () => {
     setLoading(true);
-    return api
-      .ownerUsers()
-      .then((r) => {
+    return Promise.all([
+      api.ownerUsers(),
+      api.getSettings ? api.getSettings().catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([r, s]) => {
         const list = Array.isArray(r) ? r : r.users || [];
         setUsers(list);
         setLeaves(
@@ -28,6 +47,11 @@ export function OwnerDashboard() {
             ? list.flatMap((u) => u.reward_requests || [])
             : r.reward_requests || r.rewards || []
         );
+        if (s) {
+          setSettings(s);
+        } else if (r && r.settings) {
+          setSettings(r.settings);
+        }
         setLoading(false);
       })
       .catch((e) => {
@@ -52,6 +76,7 @@ export function OwnerDashboard() {
     }
   };
 
+  // 1. Submit Point Adjustment
   async function submitAdjust(e) {
     e.preventDefault();
     if (!adj.user_id) {
@@ -76,6 +101,64 @@ export function OwnerDashboard() {
     }
   }
 
+  // 2. Submit Settings (Penalties & Arrival Windows)
+  async function submitSettings(e) {
+    e.preventDefault();
+    setErr('');
+    setMsg('');
+    setSavingSettings(true);
+    try {
+      if (api.updateSettings) {
+        await api.updateSettings(settings);
+      }
+      setMsg('System rules updated: new arrival times & penalty values are now in effect.');
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  // 3. Add User
+  async function submitAddUser(e) {
+    e.preventDefault();
+    if (!newUser.name.trim() || !newUser.username.trim()) {
+      setErr('Photographer name and username are required');
+      return;
+    }
+    setErr('');
+    setMsg('');
+    setAddingUser(true);
+    try {
+      if (api.addUser) {
+        await api.addUser(newUser);
+      }
+      setMsg(`Photographer "${newUser.name}" added successfully.`);
+      setNewUser({ name: '', username: '', role: 'employee' });
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setAddingUser(false);
+    }
+  }
+
+  // 4. Remove User
+  async function removeUser(user) {
+    setErr('');
+    setMsg('');
+    try {
+      if (api.removeUser) {
+        await api.removeUser(user.id);
+      }
+      setMsg(`User "${user.name || user.username}" removed from the system.`);
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
   const pendingLeaves = leaves.filter(
     (l) => String(l.status || '').toLowerCase() === 'pending'
   );
@@ -83,13 +166,16 @@ export function OwnerDashboard() {
     (r) => String(r.status || '').toLowerCase() === 'pending'
   );
 
+  const redVal = Number(settings.red_penalty_egp) || 250;
+  const blackVal = Number(settings.black_penalty_egp) || 1000;
+
   return (
     <div>
       <div className="row-head">
         <div>
           <h2>Owner Administration Panel</h2>
           <p className="muted subtitle">
-            Manage Sharm photographers attendance, approve rewards, process leaves and adjust points.
+            Configure resort arrival times, adjust penalty values, manage photographer accounts, and process approvals.
           </p>
         </div>
       </div>
@@ -103,7 +189,7 @@ export function OwnerDashboard() {
           variant="green"
           title="Total Photographers"
           value={users.length}
-          sub="Registered system employees"
+          sub="Registered system accounts"
         />
         <StatCard
           variant="red"
@@ -119,7 +205,160 @@ export function OwnerDashboard() {
         />
       </div>
 
-      {/* Employee List Table */}
+      {/* System Policy & Penalty Configuration */}
+      <Card className="mb">
+        <h3>System Attendance Policy & Penalty Configuration</h3>
+        <p className="muted text-sm mb-sm">
+          Adjust the financial penalty rates and daily shift arrival windows for Sharm photographers (Africa/Cairo time).
+        </p>
+
+        <form onSubmit={submitSettings} className="form" noValidate>
+          <div className="two">
+            <div>
+              <label htmlFor="cfg-red-penalty" className="field-label">
+                Red Penalty Value (EGP)
+              </label>
+              <input
+                id="cfg-red-penalty"
+                type="number"
+                min="0"
+                required
+                value={settings.red_penalty_egp}
+                onChange={(e) =>
+                  setSettings({ ...settings, red_penalty_egp: e.target.value })
+                }
+                title="Deduction amount per late check-in"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="cfg-black-penalty" className="field-label">
+                Black Penalty Value (EGP)
+              </label>
+              <input
+                id="cfg-black-penalty"
+                type="number"
+                min="0"
+                required
+                value={settings.black_penalty_egp}
+                onChange={(e) =>
+                  setSettings({ ...settings, black_penalty_egp: e.target.value })
+                }
+                title="Deduction amount per severe delay or full-day absence"
+              />
+            </div>
+          </div>
+
+          <div className="two">
+            <div>
+              <label htmlFor="cfg-early-start" className="field-label">
+                Early Arrival Bonus Start (Africa/Cairo)
+              </label>
+              <input
+                id="cfg-early-start"
+                type="time"
+                required
+                value={settings.early_window_start}
+                onChange={(e) =>
+                  setSettings({ ...settings, early_window_start: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label htmlFor="cfg-early-end" className="field-label">
+                Early Arrival Bonus End / On-Time Start
+              </label>
+              <input
+                id="cfg-early-end"
+                type="time"
+                required
+                value={settings.early_window_end}
+                onChange={(e) =>
+                  setSettings({ ...settings, early_window_end: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="two">
+            <div>
+              <label htmlFor="cfg-normal-end" className="field-label">
+                On-Time Deadline / Late Red Penalty Start
+              </label>
+              <input
+                id="cfg-normal-end"
+                type="time"
+                required
+                value={settings.normal_window_end}
+                onChange={(e) =>
+                  setSettings({ ...settings, normal_window_end: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label htmlFor="cfg-late-end" className="field-label">
+                Severe Absence Cutoff / Black Penalty Start
+              </label>
+              <input
+                id="cfg-late-end"
+                type="time"
+                required
+                value={settings.late_window_end}
+                onChange={(e) =>
+                  setSettings({ ...settings, late_window_end: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <Button disabled={savingSettings}>
+            {savingSettings ? 'Saving Policy…' : 'Save Attendance Rules & Penalties'}
+          </Button>
+        </form>
+      </Card>
+
+      {/* User Management Section */}
+      <Card className="mb">
+        <h3>User Management: Add Photographer / Admin</h3>
+        <p className="muted text-sm mb-sm">
+          Create new photographer or management accounts with portal access.
+        </p>
+
+        <form onSubmit={submitAddUser} className="form inline">
+          <input
+            required
+            aria-label="New user full name"
+            placeholder="Full Name (e.g. Kareem Tarek)"
+            value={newUser.name}
+            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+          />
+
+          <input
+            required
+            aria-label="New user username"
+            placeholder="Username (e.g. kareem)"
+            value={newUser.username}
+            onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+          />
+
+          <select
+            aria-label="New user role"
+            value={newUser.role}
+            onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+          >
+            <option value="employee">Photographer (Employee)</option>
+            <option value="owner">System Owner (Admin)</option>
+          </select>
+
+          <Button disabled={addingUser}>
+            {addingUser ? 'Adding…' : 'Add User Account'}
+          </Button>
+        </form>
+      </Card>
+
+      {/* Employee List Table with Remove Action */}
       <Card>
         <h3>Photographer Attendance & Point Balances</h3>
         {loading ? (
@@ -130,21 +369,24 @@ export function OwnerDashboard() {
               <tr>
                 <th>ID</th>
                 <th>Name / Username</th>
-                <th>Green (Rewards)</th>
-                <th>Red (250 EGP)</th>
-                <th>Black (1000 EGP)</th>
+                <th>Role</th>
+                <th>Green Points</th>
+                <th>Red ({redVal} EGP)</th>
+                <th>Black ({blackVal} EGP)</th>
                 <th>Current Deductions</th>
+                <th>Manage</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => {
-                const redDeduction = (u.red || 0) * 250;
-                const blackDeduction = (u.black || 0) * 1000;
+                const redDeduction = (u.red || 0) * redVal;
+                const blackDeduction = (u.black || 0) * blackVal;
                 const totalDeductions = redDeduction + blackDeduction;
                 return (
                   <tr key={u.id}>
                     <td>#{u.id}</td>
                     <td><strong>{u.name || u.username}</strong></td>
+                    <td className="capitalize">{u.role || 'employee'}</td>
                     <td className="green-text font-semibold">{u.green || 0}</td>
                     <td className="red-text font-semibold">{u.red || 0}</td>
                     <td className="black-text font-semibold">{u.black || 0}</td>
@@ -153,12 +395,22 @@ export function OwnerDashboard() {
                         {totalDeductions} EGP
                       </span>
                     </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        aria-label={`Remove user ${u.name || u.username}`}
+                        onClick={() => removeUser(u)}
+                      >
+                        Remove
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {!users.length && (
                 <tr>
-                  <td colSpan="6" className="muted text-center">
+                  <td colSpan="8" className="muted text-center">
                     No employees found.
                   </td>
                 </tr>
@@ -195,8 +447,8 @@ export function OwnerDashboard() {
             onChange={(e) => setAdj({ ...adj, color: e.target.value })}
           >
             <option value="green">Green (Early/Reward)</option>
-            <option value="red">Red (Penalty - 250 EGP)</option>
-            <option value="black">Black (Penalty - 1,000 EGP)</option>
+            <option value="red">Red (Penalty - {redVal} EGP)</option>
+            <option value="black">Black (Penalty - {blackVal} EGP)</option>
           </select>
 
           <input
@@ -246,6 +498,7 @@ export function OwnerDashboard() {
                     {isPending ? (
                       <div className="btn-row">
                         <Button
+                          type="button"
                           onClick={runAction(
                             () => api.approveLeave(l.id),
                             'Leave request approved: absence penalty waived'
@@ -254,6 +507,7 @@ export function OwnerDashboard() {
                           Approve
                         </Button>
                         <Button
+                          type="button"
                           variant="ghost"
                           onClick={runAction(
                             () => api.rejectLeave(l.id),
@@ -308,6 +562,7 @@ export function OwnerDashboard() {
                   <td>
                     {isPending ? (
                       <Button
+                        type="button"
                         onClick={runAction(
                           () => api.approveReward(r.id),
                           'Reward claim approved for payment disbursement'

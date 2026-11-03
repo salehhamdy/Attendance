@@ -8,6 +8,11 @@ vi.mock('../api.js', () => ({
   getToken: () => null,
   setToken: () => {},
 }));
+
+vi.mock('../auth.jsx', () => ({
+  useAuth: () => ({ user: { name: 'rico', role: 'employee' } }),
+}));
+
 // Map-based modals are not under test here.
 vi.mock('../components/CheckInModal.jsx', () => ({ default: () => <div>checkin-modal</div> }));
 vi.mock('../components/RewardModal.jsx', () => ({ default: () => <div>reward-modal</div> }));
@@ -27,7 +32,8 @@ describe('EmployeeDashboard', () => {
     expect(await screen.findByText('Red: 1 x 250 EGP = 250 EGP')).toBeInTheDocument();
     expect(screen.getByText('Black: 1 x 1000 EGP = 1000 EGP')).toBeInTheDocument();
     expect(screen.getByText('1250 EGP')).toBeInTheDocument();
-    expect(screen.getByText('5/30')).toBeInTheDocument();
+    expect(screen.getByText(/5\/30/)).toBeInTheDocument();
+    expect(screen.getByText('Welcome, rico')).toBeInTheDocument();
   });
 
   it('disables the reward button below 30 points and enables it at 30', async () => {
@@ -53,4 +59,3 @@ describe('EmployeeDashboard', () => {
     expect(await screen.findByText('boom')).toBeInTheDocument();
   });
 });
-

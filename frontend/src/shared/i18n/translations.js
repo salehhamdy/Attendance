@@ -168,3 +168,4 @@ export const translations = {
     protected_immutable: '🔒 حساب محمي (غير قابل للتعديل)',
   },
 };
+

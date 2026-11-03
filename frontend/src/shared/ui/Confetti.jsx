@@ -57,3 +57,4 @@ export function Confetti({ active = false, duration = 3500, onComplete }) {
 }
 
 export default Confetti;
+
